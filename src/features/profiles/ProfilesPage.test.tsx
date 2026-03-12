@@ -12,6 +12,7 @@ import { ProfilesPage } from "./ProfilesPage"
 describe("ProfilesPage", () => {
   beforeEach(() => {
     window.localStorage.clear()
+    window.sessionStorage.clear()
   })
 
   it("creates a profile with independent proxy settings and persists it", async () => {
@@ -79,5 +80,44 @@ describe("ProfilesPage", () => {
     )
     expect(screen.queryByText("Seeded profile (copy)")).not.toBeInTheDocument()
     expect(JSON.parse(window.localStorage.getItem(PROFILE_STORAGE_KEY) ?? "[]")).toHaveLength(1)
+  })
+
+  it("starts a profile and shows runtime status, debug port, and Playwright endpoint", async () => {
+    const user = userEvent.setup()
+    const profileA = createProfileFromDraft({
+      ...createEmptyProfileDraft(),
+      name: "Profile A",
+    })
+
+    saveProfiles([profileA])
+
+    render(<ProfilesPage />)
+
+    await user.click(screen.getByRole("button", { name: /start profile a/i }))
+
+    expect(screen.getByText(/^running$/i)).toBeInTheDocument()
+    expect(screen.getByText(/^Debug port: 9222$/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Playwright endpoint: ws:\/\/127\.0\.0\.1:9222/i),
+    ).toBeInTheDocument()
+  })
+
+  it("restarts a running profile and frees the lock after stop", async () => {
+    const user = userEvent.setup()
+    const profileA = createProfileFromDraft({
+      ...createEmptyProfileDraft(),
+      name: "Profile A",
+    })
+
+    saveProfiles([profileA])
+
+    render(<ProfilesPage />)
+
+    await user.click(screen.getByRole("button", { name: /start profile a/i }))
+    await user.click(screen.getByRole("button", { name: /restart profile a/i }))
+    await user.click(screen.getByRole("button", { name: /stop profile a/i }))
+
+    expect(screen.getByText(/^stopped$/i)).toBeInTheDocument()
+    expect(screen.getByText(/released profile lock/i)).toBeInTheDocument()
   })
 })

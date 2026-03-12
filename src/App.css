@@ -121,6 +121,14 @@ textarea {
   border-color: rgba(255, 255, 255, 0.1);
 }
 
+.profile-summary,
+.profile-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 .overview-grid,
 .panel-list {
   display: grid;
@@ -224,6 +232,11 @@ textarea {
 .profile-card {
   display: grid;
   gap: 1rem;
+}
+
+.runtime-details {
+  display: grid;
+  gap: 0.35rem;
 }
 
 .profile-card__header,

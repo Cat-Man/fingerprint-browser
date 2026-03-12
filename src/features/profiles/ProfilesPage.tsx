@@ -11,6 +11,15 @@ import {
   type BrowserProfile,
   type ProfileDraft,
 } from "./storage"
+import {
+  findRuntimeInstance,
+  loadRuntimeInstances,
+  restartProfileInstance,
+  saveRuntimeInstances,
+  startProfileInstance,
+  stopProfileInstance,
+  summarizeRuntime,
+} from "../runtime"
 
 type ProfileFormState = ProfileDraft & {
   tagsInput: string
@@ -47,15 +56,21 @@ export function ProfilesPage() {
   const [profiles, setProfiles] = useState(() => loadProfiles())
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null)
   const [formState, setFormState] = useState(createEmptyFormState)
+  const [instances, setInstances] = useState(() => loadRuntimeInstances())
 
   useEffect(() => {
     saveProfiles(profiles)
   }, [profiles])
 
+  useEffect(() => {
+    saveRuntimeInstances(instances)
+  }, [instances])
+
   const profileCountLabel = useMemo(
     () => `${profiles.length} saved profile${profiles.length === 1 ? "" : "s"}`,
     [profiles],
   )
+  const runtimeSummary = useMemo(() => summarizeRuntime(instances), [instances])
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -88,11 +103,29 @@ export function ProfilesPage() {
 
   function handleDelete(profileId: string) {
     setProfiles((current) => current.filter((profile) => profile.id !== profileId))
+    setInstances((current) =>
+      current.filter((instance) => instance.profileId !== profileId),
+    )
 
     if (editingProfileId === profileId) {
       setEditingProfileId(null)
       setFormState(createEmptyFormState())
     }
+  }
+
+  function handleStart(profile: BrowserProfile) {
+    const result = startProfileInstance(instances, profile)
+    setInstances(result.instances)
+  }
+
+  function handleRestart(profile: BrowserProfile) {
+    const result = restartProfileInstance(instances, profile)
+    setInstances(result.instances)
+  }
+
+  function handleStop(profileId: string) {
+    const result = stopProfileInstance(instances, profileId)
+    setInstances(result.instances)
   }
 
   return (
@@ -106,7 +139,12 @@ export function ProfilesPage() {
             proxy and fingerprint settings.
           </p>
         </div>
-        <span className="status-pill">{profileCountLabel}</span>
+        <div className="profile-summary">
+          <span className="status-pill">{profileCountLabel}</span>
+          <span className="status-pill status-pill--muted">
+            {runtimeSummary.runningCount} running
+          </span>
+        </div>
       </header>
 
       <div className="profiles-layout">
@@ -197,48 +235,92 @@ export function ProfilesPage() {
         </article>
 
         <div className="profile-list">
-          {profiles.map((profile) => (
-            <article className="panel-card profile-card" key={profile.id}>
-              <div className="profile-card__header">
-                <div>
-                  <h2>{profile.name}</h2>
-                  <p>{profile.group}</p>
+          {profiles.map((profile) => {
+            const instance = findRuntimeInstance(instances, profile.id)
+            const lifecycleStatus = instance?.status ?? "idle"
+
+            return (
+              <article className="panel-card profile-card" key={profile.id}>
+                <div className="profile-card__header">
+                  <div>
+                    <h2>{profile.name}</h2>
+                    <p>{profile.group}</p>
+                  </div>
+                  <div className="profile-badges">
+                    <span className="status-pill status-pill--muted">
+                      {formatProxyLabel(profile)}
+                    </span>
+                    <span className="status-pill status-pill--muted">
+                      {lifecycleStatus}
+                    </span>
+                  </div>
                 </div>
-                <span className="status-pill status-pill--muted">
-                  {formatProxyLabel(profile)}
-                </span>
-              </div>
-              <p>
-                {profile.tags.length > 0 ? profile.tags.join(", ") : "No tags yet"}
-              </p>
-              <div className="profile-card__actions">
-                <button
-                  className="secondary-button"
-                  type="button"
-                  aria-label={`Edit ${profile.name}`}
-                  onClick={() => handleEdit(profile)}
-                >
-                  Edit
-                </button>
-                <button
-                  className="secondary-button"
-                  type="button"
-                  aria-label={`Duplicate ${profile.name}`}
-                  onClick={() => handleDuplicate(profile)}
-                >
-                  Duplicate
-                </button>
-                <button
-                  className="secondary-button secondary-button--danger"
-                  type="button"
-                  aria-label={`Delete ${profile.name}`}
-                  onClick={() => handleDelete(profile.id)}
-                >
-                  Delete
-                </button>
-              </div>
-            </article>
-          ))}
+                <p>
+                  {profile.tags.length > 0 ? profile.tags.join(", ") : "No tags yet"}
+                </p>
+                <div className="runtime-details">
+                  <p>Debug port: {instance?.debugPort ?? "Not allocated"}</p>
+                  <p>Playwright endpoint: {instance?.wsEndpoint || "Not connected"}</p>
+                  {instance?.logs.at(-1) ? <p>{instance.logs.at(-1)?.message}</p> : null}
+                </div>
+                <div className="profile-card__actions">
+                  {instance?.status === "running" ? (
+                    <>
+                      <button
+                        className="secondary-button"
+                        type="button"
+                        aria-label={`Restart ${profile.name}`}
+                        onClick={() => handleRestart(profile)}
+                      >
+                        Restart
+                      </button>
+                      <button
+                        className="secondary-button"
+                        type="button"
+                        aria-label={`Stop ${profile.name}`}
+                        onClick={() => handleStop(profile.id)}
+                      >
+                        Stop
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      aria-label={`Start ${profile.name}`}
+                      onClick={() => handleStart(profile)}
+                    >
+                      Start
+                    </button>
+                  )}
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    aria-label={`Edit ${profile.name}`}
+                    onClick={() => handleEdit(profile)}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    aria-label={`Duplicate ${profile.name}`}
+                    onClick={() => handleDuplicate(profile)}
+                  >
+                    Duplicate
+                  </button>
+                  <button
+                    className="secondary-button secondary-button--danger"
+                    type="button"
+                    aria-label={`Delete ${profile.name}`}
+                    onClick={() => handleDelete(profile.id)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </article>
+            )
+          })}
         </div>
       </div>
     </section>
