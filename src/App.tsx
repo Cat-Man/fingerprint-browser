@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { HashRouter, NavLink, Route, Routes } from "react-router-dom"
 import { automationMilestones } from "./features/automation"
-import { profileModelItems, profileNextStep } from "./features/profiles"
+import { ProfilesPage } from "./features/profiles/ProfilesPage"
 import { runtimeDefaults, runtimeDiagnostics } from "./features/runtime"
 import { loadDesktopOverview, type DesktopOverview } from "./lib/desktop"
 import "./App.css"
@@ -64,38 +64,6 @@ function DashboardPage({ overview }: { overview: DesktopOverview | null }) {
           value={String(automationMilestones.length)}
           helper="Planned: Playwright, CreepJS, and BrowserLeaks validation flows."
         />
-      </div>
-    </section>
-  )
-}
-
-function ProfilesPage() {
-  return (
-    <section className="page-shell">
-      <header className="page-shell__header">
-        <div>
-          <p className="eyebrow">Identity workspace</p>
-          <h1>Profiles</h1>
-          <p>
-            Create, organize, and launch isolated browser profiles with their own
-            proxy and fingerprint settings.
-          </p>
-        </div>
-      </header>
-
-      <div className="panel-list">
-        <article className="panel-card">
-          <h2>Profile model</h2>
-          <ul>
-            {profileModelItems.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </article>
-        <article className="panel-card">
-          <h2>Next step</h2>
-          <p>{profileNextStep}</p>
-        </article>
       </div>
     </section>
   )

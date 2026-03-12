@@ -5,4 +5,17 @@ export const profileModelItems = [
 ]
 
 export const profileNextStep =
-  "Wire this page to persistent storage so profiles survive restarts and can be reused by the runtime adapter."
+  "Profiles in this MVP persist in local storage today and can later move behind a Tauri-backed JSON or SQLite store."
+
+export {
+  PROFILE_STORAGE_KEY,
+  createEmptyProfileDraft,
+  createProfileFromDraft,
+  duplicateProfile,
+  loadProfiles,
+  saveProfiles,
+  toProfileDraft,
+  updateProfileFromDraft,
+  type BrowserProfile,
+  type ProfileDraft,
+} from "./storage"
