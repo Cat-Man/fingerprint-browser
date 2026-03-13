@@ -20,6 +20,7 @@
 │ - Dashboard                  │
 │ - Profiles                   │
 │ - Settings                   │
+│ - Detection Lab              │
 └──────────────┬───────────────┘
                │
                │ uses
@@ -61,6 +62,8 @@
 - `src/features/runtime/index.ts`
 
 ### Automation 模块
+- `src/features/automation/storage.ts`
+- `src/features/automation/AutomationPage.tsx`
 - `src/features/automation/index.ts`
 
 ### Native Desktop Host
@@ -113,13 +116,14 @@
 
 该层是 Manager 与 Native Runtime 的关键边界。
 
-### 4.5 Automation Bridge
+### 4.5 Automation / Detection Lab
 
-负责为自动化框架暴露统一连接入口，例如：
+负责沉淀检测与自动化相关的控制面能力，例如：
 
-- ws endpoint
-- remote debugging port
-- 未来的 attach / reconnect 信息
+- CreepJS / BrowserLeaks 目标定义
+- 手工回归 checklist
+- 回归记录存储与 diff 对比
+- 未来的 ws endpoint / attach / reconnect 信息
 
 ## 5. 关键数据流
 
@@ -150,6 +154,13 @@
 5. 返回真实 `processId`、`debugPort`、`wsEndpoint`
 6. Lifecycle Manager 同步 UI 状态
 
+### 5.5 检测实验室（当前）
+1. 用户在 Detection Lab 选择 profile 与检测站点
+2. 页面根据 profile 预填基础 fingerprint 期望值
+3. 用户手工访问 CreepJS / BrowserLeaks 并记录观测结果
+4. Regression storage 将结果写入 `localStorage`
+5. 页面展示最近两次 run 的字段级 diff
+
 ## 6. 领域模型
 
 ### BrowserProfile
@@ -165,7 +176,7 @@
 - 日志
 - 错误摘要
 
-### FingerprintConfig（planned）
+### FingerprintConfig
 - userAgent
 - language / locale
 - timezone
@@ -173,7 +184,7 @@
 - WebRTC policy
 - 未来扩展：WebGL / Canvas / Audio / fonts 等
 
-### LaunchPlan（planned）
+### LaunchPlan
 - adapterId
 - fingerprint config
 - Chromium args
@@ -204,17 +215,18 @@
 - `README.md` 仍是 Vite 模板，未更新为项目说明
 - runtime manager 仍是 session-backed mock，不是原生进程管理
 - Playwright endpoint 目前是“合同面”，并非真实连接
-- Dashboard 中 running instances 仍未接真实运行态统计
-- Runtime Adapter 尚未正式落地到代码主线
+- Detection Lab 目前仍是手动记录工作流，尚未接入 Playwright 自动执行
+- Canvas / WebGL / Audio / ClientRects 仍未接入自动采集或注入校验
+
 
 ## 9. 下一步实现顺序
 
 建议按以下顺序继续：
 
-1. 交付 issue `#5`：Runtime Adapter
-2. 将 Lifecycle Manager 与 Runtime Adapter 接通
-3. 接入真实 Chromium / native launcher
-4. 交付 issue `#6`：检测实验室与回归流程
+1. 接入真实 Chromium / native launcher
+2. 让 Lifecycle Manager 返回真实 wsEndpoint / process handle
+3. 把 Detection Lab 与 Playwright / 检测站点自动采集联通
+4. 为回归结果补充导出与对比视图
 
 ## 10. 相关文档
 

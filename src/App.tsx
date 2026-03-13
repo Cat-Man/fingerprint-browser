@@ -1,8 +1,14 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { HashRouter, NavLink, Route, Routes } from "react-router-dom"
-import { automationMilestones } from "./features/automation"
+import { AutomationPage } from "./features/automation/AutomationPage"
+import { loadRegressionRuns, summarizeRegressionRuns } from "./features/automation/storage"
 import { ProfilesPage } from "./features/profiles/ProfilesPage"
-import { runtimeDefaults, runtimeDiagnostics } from "./features/runtime"
+import {
+  loadRuntimeInstances,
+  runtimeDefaults,
+  runtimeDiagnostics,
+  summarizeRuntime,
+} from "./features/runtime"
 import { loadDesktopOverview, type DesktopOverview } from "./lib/desktop"
 import "./App.css"
 
@@ -22,12 +28,19 @@ function OverviewCard({ title, value, helper }: OverviewCardProps) {
   )
 }
 
-function DashboardPage({ overview }: { overview: DesktopOverview | null }) {
+function DashboardPage({
+  overview,
+  regressionSummary,
+}: {
+  overview: DesktopOverview | null
+  regressionSummary: ReturnType<typeof summarizeRegressionRuns>
+}) {
   const bridgeStatus = overview
     ? overview.source === "tauri"
       ? "Tauri connected"
       : "Web preview fallback"
     : "Loading bridge..."
+  const runtimeSummary = summarizeRuntime(loadRuntimeInstances())
 
   return (
     <section className="page-shell">
@@ -56,13 +69,13 @@ function DashboardPage({ overview }: { overview: DesktopOverview | null }) {
         />
         <OverviewCard
           title="Running instances"
-          value="0"
+          value={String(runtimeSummary.runningCount)}
           helper="Launch browsers with dedicated ports and proxy settings."
         />
         <OverviewCard
-          title="Regression checks"
-          value={String(automationMilestones.length)}
-          helper="Planned: Playwright, CreepJS, and BrowserLeaks validation flows."
+          title="Regression runs"
+          value={`${regressionSummary.totalRuns} detection runs saved locally`}
+          helper={`${regressionSummary.profilesCovered} profiles covered. CreepJS and BrowserLeaks manual regression coverage.`}
         />
       </div>
     </section>
@@ -108,11 +121,15 @@ function SettingsPage() {
 const navItems = [
   { to: "/", label: "Dashboard" },
   { to: "/profiles", label: "Profiles" },
+  { to: "/automation", label: "Detection Lab" },
   { to: "/settings", label: "Settings" },
 ]
 
 function AppLayout() {
   const [overview, setOverview] = useState<DesktopOverview | null>(null)
+  const [regressionSummary, setRegressionSummary] = useState(() =>
+    summarizeRegressionRuns(loadRegressionRuns()),
+  )
 
   useEffect(() => {
     let active = true
@@ -137,6 +154,10 @@ function AppLayout() {
     return () => {
       active = false
     }
+  }, [])
+
+  const handleRunsChanged = useCallback((runs: ReturnType<typeof loadRegressionRuns>) => {
+    setRegressionSummary(summarizeRegressionRuns(runs))
   }, [])
 
   return (
@@ -169,8 +190,15 @@ function AppLayout() {
 
       <main className="app-shell__content">
         <Routes>
-          <Route path="/" element={<DashboardPage overview={overview} />} />
+          <Route
+            path="/"
+            element={<DashboardPage overview={overview} regressionSummary={regressionSummary} />}
+          />
           <Route path="/profiles" element={<ProfilesPage />} />
+          <Route
+            path="/automation"
+            element={<AutomationPage onRunsChanged={handleRunsChanged} />}
+          />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </main>

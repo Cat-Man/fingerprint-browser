@@ -257,6 +257,31 @@ textarea {
   word-break: break-all;
 }
 
+.lab-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.lab-panel-list {
+  grid-template-columns: 1fr;
+}
+
+.lab-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.lab-checklist {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.lab-checklist li {
+  margin-bottom: 0.55rem;
+}
+
 .profile-card__header,
 .profile-card__actions {
   display: flex;
@@ -302,6 +327,8 @@ textarea {
   .overview-grid,
   .panel-list,
   .profiles-layout,
+  .lab-layout,
+  .lab-fields-grid,
   .field-row {
     grid-template-columns: 1fr;
   }
