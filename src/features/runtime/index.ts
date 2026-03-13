@@ -11,6 +11,16 @@ export const runtimeDiagnostics = [
 ]
 
 export {
+  buildFingerprintConfig,
+  chromiumRuntimeAdapter,
+  resolveRuntimeAdapter,
+  type FingerprintConfig,
+  type RuntimeAdapter,
+  type RuntimeLaunchPlan,
+  type RuntimeLaunchRequest,
+} from "./adapter"
+
+export {
   RUNTIME_STORAGE_KEY,
   findRuntimeInstance,
   loadRuntimeInstances,

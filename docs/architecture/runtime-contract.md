@@ -75,6 +75,12 @@ export type RuntimeLaunchPlan = {
   metadata: {
     wsPathHint?: string
     profileDataDir?: string
+    browserVersion?: string
+    proxy?: {
+      server: string
+      username?: string
+      password?: string
+    }
   }
 }
 

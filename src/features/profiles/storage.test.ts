@@ -59,6 +59,8 @@ describe("profile storage", () => {
       fingerprint: {
         timezone: "Asia/Shanghai",
         locale: "zh-CN",
+        userAgent: "",
+        webrtcPolicy: "proxy-only" as const,
         geolocationPolicy: "prompt" as const,
         screen: "1920x1080",
         memory: "8",
@@ -75,5 +77,43 @@ describe("profile storage", () => {
     expect(copy.id).not.toBe(original.id)
     expect(copy.name).toBe("Shop A (copy)")
     expect(copy.proxy).toEqual(original.proxy)
+  })
+
+  it("hydrates legacy profiles with runtime fingerprint defaults", () => {
+    const storage = createMemoryStorage({
+      [PROFILE_STORAGE_KEY]: JSON.stringify([
+        {
+          id: "profile-legacy",
+          name: "Legacy profile",
+          group: "Default",
+          tags: [],
+          notes: "",
+          browserEngine: "Chromium",
+          browserVersion: "stable",
+          proxy: {
+            type: "http",
+            host: "",
+            port: "",
+            username: "",
+            password: "",
+          },
+          fingerprint: {
+            timezone: "UTC",
+            locale: "en-US",
+            geolocationPolicy: "prompt",
+            screen: "1920x1080",
+            memory: "8",
+            hardwareConcurrency: "8",
+          },
+          createdAt: "2026-03-12T00:00:00.000Z",
+          updatedAt: "2026-03-12T00:00:00.000Z",
+        },
+      ]),
+    })
+
+    const loadedFingerprint = loadProfiles(storage)[0].fingerprint as Record<string, string>
+
+    expect(loadedFingerprint.webrtcPolicy).toBe("proxy-only")
+    expect(loadedFingerprint.userAgent).toBe("")
   })
 })

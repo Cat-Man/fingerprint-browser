@@ -2,6 +2,7 @@ export const PROFILE_STORAGE_KEY = "fingerprint-browser.profiles.v1"
 
 export type ProxyType = "http" | "socks5"
 export type GeolocationPolicy = "prompt" | "allow" | "block"
+export type WebRtcPolicy = "default" | "proxy-only" | "disabled"
 
 export type ProfileProxy = {
   type: ProxyType
@@ -14,6 +15,8 @@ export type ProfileProxy = {
 export type ProfileFingerprint = {
   timezone: string
   locale: string
+  userAgent: string
+  webrtcPolicy: WebRtcPolicy
   geolocationPolicy: GeolocationPolicy
   screen: string
   memory: string
@@ -57,6 +60,8 @@ export function createEmptyProfileDraft(): ProfileDraft {
     fingerprint: {
       timezone: "UTC",
       locale: "en-US",
+      userAgent: "",
+      webrtcPolicy: "proxy-only",
       geolocationPolicy: "prompt",
       screen: "1920x1080",
       memory: "8",
@@ -123,7 +128,7 @@ export function loadProfiles(
 
   try {
     const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
+    return Array.isArray(parsed) ? parsed.map(normalizeProfile) : []
   } catch {
     return []
   }
@@ -142,4 +147,18 @@ function createProfileId() {
   }
 
   return `profile-${Math.random().toString(36).slice(2, 10)}`
+}
+
+function normalizeProfile(rawProfile: BrowserProfile): BrowserProfile {
+  return {
+    ...rawProfile,
+    proxy: {
+      ...createEmptyProfileDraft().proxy,
+      ...rawProfile.proxy,
+    },
+    fingerprint: {
+      ...createEmptyProfileDraft().fingerprint,
+      ...rawProfile.fingerprint,
+    },
+  }
 }

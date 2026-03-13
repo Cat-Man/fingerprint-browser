@@ -102,6 +102,27 @@ describe("ProfilesPage", () => {
     ).toBeInTheDocument()
   })
 
+  it("shows the runtime adapter preview and remote debugging arg for a running profile", async () => {
+    const user = userEvent.setup()
+    const profileA = createProfileFromDraft({
+      ...createEmptyProfileDraft(),
+      name: "Profile A",
+    })
+
+    saveProfiles([profileA])
+
+    render(<ProfilesPage />)
+
+    await user.click(screen.getByRole("button", { name: /start profile a/i }))
+
+    expect(screen.getByText(/Adapter: chromium/i)).toBeInTheDocument()
+    expect(screen.getByText("--remote-debugging-port=9222")).toBeInTheDocument()
+    expect(screen.getByText("--window-size=1920,1080")).toBeInTheDocument()
+    expect(
+      screen.getByText("--force-webrtc-ip-handling-policy=disable_non_proxied_udp"),
+    ).toBeInTheDocument()
+  })
+
   it("restarts a running profile and frees the lock after stop", async () => {
     const user = userEvent.setup()
     const profileA = createProfileFromDraft({

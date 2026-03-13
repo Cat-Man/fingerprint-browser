@@ -14,6 +14,7 @@ import {
 import {
   findRuntimeInstance,
   loadRuntimeInstances,
+  resolveRuntimeAdapter,
   restartProfileInstance,
   saveRuntimeInstances,
   startProfileInstance,
@@ -238,6 +239,13 @@ export function ProfilesPage() {
           {profiles.map((profile) => {
             const instance = findRuntimeInstance(instances, profile.id)
             const lifecycleStatus = instance?.status ?? "idle"
+            const runtimeAdapter = resolveRuntimeAdapter(profile)
+            const launchPlan = instance
+              ? runtimeAdapter?.prepareLaunch({
+                  profile,
+                  debugPort: instance.debugPort,
+                })
+              : null
 
             return (
               <article className="panel-card profile-card" key={profile.id}>
@@ -263,6 +271,22 @@ export function ProfilesPage() {
                   <p>Playwright endpoint: {instance?.wsEndpoint || "Not connected"}</p>
                   {instance?.logs.at(-1) ? <p>{instance.logs.at(-1)?.message}</p> : null}
                 </div>
+                {launchPlan ? (
+                  <div className="runtime-plan">
+                    <p>Adapter: {launchPlan.adapterId}</p>
+                    <p>
+                      Fingerprint: {launchPlan.fingerprint.language} ·{" "}
+                      {launchPlan.fingerprint.timezone} ·{" "}
+                      {launchPlan.fingerprint.resolution.width}x
+                      {launchPlan.fingerprint.resolution.height}
+                    </p>
+                    <ul className="runtime-plan__args">
+                      {launchPlan.launchArgs.map((arg) => (
+                        <li key={arg}>{arg}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
                 <div className="profile-card__actions">
                   {instance?.status === "running" ? (
                     <>
