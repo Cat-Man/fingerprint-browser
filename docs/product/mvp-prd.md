@@ -34,7 +34,7 @@ MVP 面向以下用户：
 ### 4.1 In Scope
 
 #### A. Manager App
-- Dashboard / Profiles / Settings 基础页面
+- Dashboard / Profiles / Settings / Detection Lab 基础页面
 - Tauri 桌面壳与前端桥接占位
 
 #### B. Profile 管理
@@ -112,12 +112,20 @@ MVP 面向以下用户：
   - 支持调试端口分配
   - 支持 profile lock
   - UI 可展示运行状态、端口、wsEndpoint 合同面
+- Runtime Adapter 已合入 `main`
+  - 可从 profile 生成 `FingerprintConfig`
+  - 可生成 Chromium `LaunchPlan` 与关键元数据
+  - UI 可预览 adapter 输出与完整启动参数
+- Detection Lab 第一阶段已合入 `main`
+  - 内置 CreepJS / BrowserLeaks 目标与手工 checklist
+  - 支持按 profile 记录回归结果并查看最近 diff
+  - Dashboard 可展示检测覆盖情况
 
 ### 未完成能力
 - 真实 Chromium / Tauri runtime 接入
-- Runtime Adapter 正式落地
 - Playwright 真连接
-- 检测实验室与回归脚本
+- 检测结果自动采集与回归脚本
+- 更深层指纹注入与自动校验（Canvas / WebGL / Audio / ClientRects）
 
 ## 8. 里程碑
 
@@ -139,7 +147,8 @@ MVP 面向以下用户：
 
 ### M5：检测实验室
 - 对应 issue `#6`
-- 目标：形成最小闭环的检测与回归能力
+- 目标：形成最小闭环的检测与回归能力（第一阶段为手工录入 + diff 对比）
+- 当前进度：手动回归记录与 diff 工作台已落地，自动化执行仍待后续接入
 
 ## 9. MVP 完成标准
 
