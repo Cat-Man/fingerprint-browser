@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import type { ChangeEvent, FormEvent } from "react"
+import { useI18n, type MessageKey } from "../i18n"
 import { loadProfiles, type BrowserProfile } from "../profiles"
 import { buildFingerprintConfig } from "../runtime"
 import {
@@ -29,15 +30,22 @@ type LabFormState = {
   notes: string
 }
 
-const FIELD_LABELS: Record<RegressionField, string> = {
-  userAgent: "User agent",
-  language: "Language",
-  timezone: "Timezone",
-  webrtc: "WebRTC",
-  canvas: "Canvas",
-  webgl: "WebGL",
-  audio: "Audio",
-  clientRects: "ClientRects",
+function pluralMessageKey(base: string, count: number) {
+  return `${base}.${count === 1 ? "one" : "other"}` as MessageKey
+}
+
+function fieldMessageKey(field: RegressionField) {
+  return `automation.field.${field}` as MessageKey
+}
+
+function targetDescriptionKey(targetId: DetectionTargetId) {
+  return `automation.target.${targetId}.description` as MessageKey
+}
+
+function targetStepKeys(targetId: DetectionTargetId) {
+  return [1, 2, 3, 4].map(
+    (step) => `automation.target.${targetId}.step${step}` as MessageKey,
+  )
 }
 
 function buildObservedDefaults(
@@ -97,14 +105,8 @@ function createInitialFormState(
   }
 }
 
-function formatTimestamp(timestamp: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(timestamp))
-}
-
 export function AutomationPage({ onRunsChanged }: AutomationPageProps) {
+  const { t, formatDateTime } = useI18n()
   const [profiles] = useState(() => loadProfiles())
   const [runs, setRuns] = useState(() => loadRegressionRuns())
   const [formState, setFormState] = useState(() => createInitialFormState(profiles, loadRegressionRuns()))
@@ -199,7 +201,12 @@ export function AutomationPage({ onRunsChanged }: AutomationPageProps) {
     const nextRuns = [nextRun, ...runs]
 
     setRuns(nextRuns)
-    setFeedback(`Saved regression run for ${selectedProfile.name} on ${selectedTarget.name}.`)
+    setFeedback(
+      t("automation.feedback.saved", {
+        profile: selectedProfile.name,
+        target: selectedTarget.name,
+      }),
+    )
     setFormState((current) => ({
       ...current,
       notes: "",
@@ -211,13 +218,13 @@ export function AutomationPage({ onRunsChanged }: AutomationPageProps) {
       <section className="page-shell">
         <header className="page-shell__header">
           <div>
-            <p className="eyebrow">Regression workflow</p>
-            <h1>Detection Lab</h1>
-            <p>Create a profile first, then record manual checks for CreepJS and BrowserLeaks.</p>
+            <p className="eyebrow">{t("automation.eyebrow")}</p>
+            <h1>{t("automation.title")}</h1>
+            <p>{t("automation.empty.description")}</p>
           </div>
         </header>
         <article className="panel-card">
-          <p>No profiles available yet. Create a profile before running detection checks.</p>
+          <p>{t("automation.empty.notice")}</p>
         </article>
       </section>
     )
@@ -227,27 +234,34 @@ export function AutomationPage({ onRunsChanged }: AutomationPageProps) {
     <section className="page-shell">
       <header className="page-shell__header">
         <div>
-          <p className="eyebrow">Regression workflow</p>
-          <h1>Detection Lab</h1>
-          <p>
-            Record manual fingerprint observations for CreepJS and BrowserLeaks,
-            then compare them against previous runs for the same profile.
-          </p>
+          <p className="eyebrow">{t("automation.eyebrow")}</p>
+          <h1>{t("automation.title")}</h1>
+          <p>{t("automation.description")}</p>
         </div>
         <div className="profile-summary">
-          <span className="status-pill">{summary.totalRuns} recorded runs</span>
+          <span className="status-pill">
+            {t(pluralMessageKey("automation.summary.runs", summary.totalRuns), {
+              count: summary.totalRuns,
+            })}
+          </span>
           <span className="status-pill status-pill--muted">
-            {summary.profilesCovered} profiles covered
+            {t(
+              pluralMessageKey(
+                "automation.summary.profilesCovered",
+                summary.profilesCovered,
+              ),
+              { count: summary.profilesCovered },
+            )}
           </span>
         </div>
       </header>
 
       <div className="lab-layout">
         <article className="panel-card">
-          <h2>Record regression run</h2>
+          <h2>{t("automation.form.title")}</h2>
           <form className="profile-form" onSubmit={handleSubmit}>
             <label className="field">
-              <span>Profile</span>
+              <span>{t("automation.form.profile")}</span>
               <select value={formState.profileId} onChange={handleProfileChange}>
                 {profiles.map((profile) => (
                   <option key={profile.id} value={profile.id}>
@@ -258,7 +272,7 @@ export function AutomationPage({ onRunsChanged }: AutomationPageProps) {
             </label>
 
             <label className="field">
-              <span>Target</span>
+              <span>{t("automation.form.target")}</span>
               <select value={formState.targetId} onChange={handleTargetChange}>
                 {detectionTargets.map((target) => (
                   <option key={target.id} value={target.id}>
@@ -271,9 +285,9 @@ export function AutomationPage({ onRunsChanged }: AutomationPageProps) {
             <div className="lab-fields-grid">
               {REGRESSION_FIELDS.map((field) => (
                 <label className="field" key={field}>
-                  <span>{FIELD_LABELS[field]}</span>
+                  <span>{t(fieldMessageKey(field))}</span>
                   <input
-                    aria-label={FIELD_LABELS[field]}
+                    aria-label={t(fieldMessageKey(field))}
                     value={formState.observed[field]}
                     onChange={(event) => handleObservedChange(field, event.target.value)}
                   />
@@ -282,8 +296,9 @@ export function AutomationPage({ onRunsChanged }: AutomationPageProps) {
             </div>
 
             <label className="field">
-              <span>Notes</span>
+              <span>{t("automation.form.notes")}</span>
               <textarea
+                aria-label={t("automation.form.notes")}
                 value={formState.notes}
                 onChange={(event) =>
                   setFormState((current) => ({ ...current, notes: event.target.value }))
@@ -292,7 +307,7 @@ export function AutomationPage({ onRunsChanged }: AutomationPageProps) {
             </label>
 
             <button className="primary-button" type="submit">
-              Save regression run
+              {t("automation.form.save")}
             </button>
             {feedback ? <p>{feedback}</p> : null}
           </form>
@@ -300,19 +315,19 @@ export function AutomationPage({ onRunsChanged }: AutomationPageProps) {
 
         <div className="panel-list lab-panel-list">
           <article className="panel-card">
-            <h2>{selectedTarget?.name ?? "Detection target"}</h2>
+            <h2>{selectedTarget?.name ?? t("automation.target.placeholder")}</h2>
             {selectedTarget ? (
               <>
-                <p>{selectedTarget.description}</p>
+                <p>{t(targetDescriptionKey(selectedTarget.id))}</p>
                 <p>
-                  URL:{" "}
+                  {t("automation.target.url")}{" "}
                   <a href={selectedTarget.url} target="_blank" rel="noreferrer">
                     {selectedTarget.url}
                   </a>
                 </p>
                 <ol className="lab-checklist">
-                  {selectedTarget.steps.map((step) => (
-                    <li key={step}>{step}</li>
+                  {targetStepKeys(selectedTarget.id).map((stepKey) => (
+                    <li key={stepKey}>{t(stepKey)}</li>
                   ))}
                 </ol>
               </>
@@ -320,22 +335,32 @@ export function AutomationPage({ onRunsChanged }: AutomationPageProps) {
           </article>
 
           <article className="panel-card">
-            <h2>Latest regression diff</h2>
+            <h2>{t("automation.diff.title")}</h2>
             {!latestDiff ? (
-              <p>Save at least two runs for this profile and target to compare changes.</p>
+              <p>{t("automation.diff.hint")}</p>
             ) : latestDiff.diff.changedFields.length === 0 ? (
-              <p>No field changes detected between the latest two runs.</p>
+              <p>{t("automation.diff.none")}</p>
             ) : (
               <>
                 <p>
-                  Changed fields:{" "}
-                  {latestDiff.diff.changedFields.map((field) => field.toLowerCase()).join(", ")}
+                  {t("automation.diff.changedFields", {
+                    fields: latestDiff.diff.changedFields
+                      .map((field) => t(fieldMessageKey(field)))
+                      .join(", "),
+                  })}
                 </p>
                 <ul>
                   {latestDiff.diff.changedFields.map((field) => (
                     <li key={field}>
-                      {FIELD_LABELS[field]} changed: {latestDiff.previous.observed[field] || "(empty)"} →{" "}
-                      {latestDiff.current.observed[field] || "(empty)"}
+                      {t("automation.diff.fieldChanged", {
+                        field: t(fieldMessageKey(field)),
+                        previous:
+                          latestDiff.previous.observed[field] ||
+                          t("automation.diff.emptyValue"),
+                        current:
+                          latestDiff.current.observed[field] ||
+                          t("automation.diff.emptyValue"),
+                      })}
                     </li>
                   ))}
                 </ul>
@@ -344,15 +369,15 @@ export function AutomationPage({ onRunsChanged }: AutomationPageProps) {
           </article>
 
           <article className="panel-card">
-            <h2>Recent runs</h2>
+            <h2>{t("automation.recentRuns.title")}</h2>
             {recentRuns.length === 0 ? (
-              <p>No runs recorded yet for this profile and target.</p>
+              <p>{t("automation.recentRuns.empty")}</p>
             ) : (
               <ul>
                 {recentRuns.slice(0, 5).map((run) => (
                   <li key={run.id}>
                     <strong>{`${run.profileName} · ${run.targetName}`}</strong>
-                    <span>{` · ${formatTimestamp(run.createdAt)}`}</span>
+                    <span>{` · ${formatDateTime(run.createdAt)}`}</span>
                     {run.notes ? <span>{` · ${run.notes}`}</span> : null}
                   </li>
                 ))}

@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it } from "vitest"
 import { createRegressionRun, saveRegressionRuns } from "./features/automation/storage"
+import { I18N_STORAGE_KEY } from "./features/i18n"
 import App from "./App"
 
 describe("App shell", () => {
@@ -49,5 +50,21 @@ describe("App shell", () => {
     await user.click(screen.getByRole("link", { name: /settings/i }))
     expect(screen.getByRole("heading", { name: /settings/i })).toBeInTheDocument()
     expect(screen.getByText(/configure app defaults, runtime behavior, and diagnostics/i)).toBeInTheDocument()
+  })
+
+  it("switches to simplified chinese from settings and persists the locale", async () => {
+    const user = userEvent.setup()
+
+    render(<App />)
+
+    expect(await screen.findByText(/web preview fallback/i)).toBeInTheDocument()
+
+    await user.click(screen.getByRole("link", { name: /settings/i }))
+    await user.selectOptions(screen.getByRole("combobox", { name: /language/i }), "zh-CN")
+
+    expect(screen.getByRole("heading", { name: "设置" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "仪表板" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "配置文件" })).toBeInTheDocument()
+    expect(window.localStorage.getItem(I18N_STORAGE_KEY)).toBe("zh-CN")
   })
 })
