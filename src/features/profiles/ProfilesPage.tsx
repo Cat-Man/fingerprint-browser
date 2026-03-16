@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import type { FormEvent } from "react"
+import { useI18n } from "../i18n"
+import type { DesktopRuntimeBridge } from "../../lib/runtimeDesktop"
 import {
   createEmptyProfileDraft,
   createProfileFromDraft,
@@ -15,10 +17,10 @@ import {
   findRuntimeInstance,
   loadRuntimeInstances,
   resolveRuntimeAdapter,
-  restartProfileInstance,
+  restartProfileRuntime,
   saveRuntimeInstances,
-  startProfileInstance,
-  stopProfileInstance,
+  startProfileRuntime,
+  stopProfileRuntime,
   summarizeRuntime,
 } from "../runtime"
 
@@ -26,11 +28,12 @@ type ProfileFormState = ProfileDraft & {
   tagsInput: string
 }
 
-function createEmptyFormState(): ProfileFormState {
+function createEmptyFormState(defaultGroupLabel: string): ProfileFormState {
   const draft = createEmptyProfileDraft()
 
   return {
     ...draft,
+    group: defaultGroupLabel,
     tagsInput: "",
   }
 }
@@ -45,18 +48,64 @@ function buildDraft(formState: ProfileFormState): ProfileDraft {
   }
 }
 
-function formatProxyLabel(draft: ProfileDraft) {
+function formatProxyLabel(
+  draft: ProfileDraft,
+  t: ReturnType<typeof useI18n>["t"],
+) {
   if (!draft.proxy.host || !draft.proxy.port) {
-    return "No proxy configured"
+    return t("profiles.proxy.none")
   }
 
   return `${draft.proxy.type}://${draft.proxy.host}:${draft.proxy.port}`
 }
 
-export function ProfilesPage() {
+function formatGroupLabel(
+  group: string,
+  t: ReturnType<typeof useI18n>["t"],
+) {
+  return group === "Default" || group === "默认" ? t("profiles.group.default") : group
+}
+
+function formatRuntimeStatus(
+  status: "running" | "stopped" | "idle",
+  t: ReturnType<typeof useI18n>["t"],
+) {
+  if (status === "running") {
+    return t("runtime.status.running")
+  }
+
+  if (status === "stopped") {
+    return t("runtime.status.stopped")
+  }
+
+  return t("runtime.status.idle")
+}
+
+function formatRuntimeLog(
+  latestLog: ReturnType<typeof findLatestLog>,
+  t: ReturnType<typeof useI18n>["t"],
+) {
+  if (!latestLog) {
+    return null
+  }
+
+  return latestLog.messageKey ? t(latestLog.messageKey, latestLog.params) : latestLog.message
+}
+
+function findLatestLog(instance: ReturnType<typeof findRuntimeInstance>) {
+  return instance?.logs.at(-1)
+}
+
+type ProfilesPageProps = {
+  runtimeBridge?: DesktopRuntimeBridge
+}
+
+export function ProfilesPage({ runtimeBridge }: ProfilesPageProps) {
+  const { t } = useI18n()
+  const defaultGroupLabel = t("profiles.group.default")
   const [profiles, setProfiles] = useState(() => loadProfiles())
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null)
-  const [formState, setFormState] = useState(createEmptyFormState)
+  const [formState, setFormState] = useState(() => createEmptyFormState(defaultGroupLabel))
   const [instances, setInstances] = useState(() => loadRuntimeInstances())
 
   useEffect(() => {
@@ -68,10 +117,20 @@ export function ProfilesPage() {
   }, [instances])
 
   const profileCountLabel = useMemo(
-    () => `${profiles.length} saved profile${profiles.length === 1 ? "" : "s"}`,
-    [profiles],
+    () =>
+      t(
+        profiles.length === 1
+          ? "profiles.summary.saved.one"
+          : "profiles.summary.saved.other",
+        { count: profiles.length },
+      ),
+    [profiles.length, t],
   )
   const runtimeSummary = useMemo(() => summarizeRuntime(instances), [instances])
+  const displayedGroupValue =
+    !editingProfileId && (formState.group === "Default" || formState.group === "默认")
+      ? defaultGroupLabel
+      : formState.group
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -87,7 +146,7 @@ export function ProfilesPage() {
 
     setProfiles(nextProfiles)
     setEditingProfileId(null)
-    setFormState(createEmptyFormState())
+    setFormState(createEmptyFormState(defaultGroupLabel))
   }
 
   function handleEdit(profile: BrowserProfile) {
@@ -110,22 +169,22 @@ export function ProfilesPage() {
 
     if (editingProfileId === profileId) {
       setEditingProfileId(null)
-      setFormState(createEmptyFormState())
+      setFormState(createEmptyFormState(defaultGroupLabel))
     }
   }
 
-  function handleStart(profile: BrowserProfile) {
-    const result = startProfileInstance(instances, profile)
+  async function handleStart(profile: BrowserProfile) {
+    const result = await startProfileRuntime(instances, profile, runtimeBridge)
     setInstances(result.instances)
   }
 
-  function handleRestart(profile: BrowserProfile) {
-    const result = restartProfileInstance(instances, profile)
+  async function handleRestart(profile: BrowserProfile) {
+    const result = await restartProfileRuntime(instances, profile, runtimeBridge)
     setInstances(result.instances)
   }
 
-  function handleStop(profileId: string) {
-    const result = stopProfileInstance(instances, profileId)
+  async function handleStop(profileId: string) {
+    const result = await stopProfileRuntime(instances, profileId, runtimeBridge)
     setInstances(result.instances)
   }
 
@@ -133,28 +192,30 @@ export function ProfilesPage() {
     <section className="page-shell">
       <header className="page-shell__header">
         <div>
-          <p className="eyebrow">Identity workspace</p>
-          <h1>Profiles</h1>
-          <p>
-            Create, organize, and launch isolated browser profiles with their own
-            proxy and fingerprint settings.
-          </p>
+          <p className="eyebrow">{t("profiles.eyebrow")}</p>
+          <h1>{t("profiles.title")}</h1>
+          <p>{t("profiles.description")}</p>
         </div>
         <div className="profile-summary">
           <span className="status-pill">{profileCountLabel}</span>
           <span className="status-pill status-pill--muted">
-            {runtimeSummary.runningCount} running
+            {t("profiles.summary.running", { count: runtimeSummary.runningCount })}
           </span>
         </div>
       </header>
 
       <div className="profiles-layout">
         <article className="panel-card">
-          <h2>{editingProfileId ? "Edit profile" : "Create profile"}</h2>
+          <h2>
+            {editingProfileId
+              ? t("profiles.form.editTitle")
+              : t("profiles.form.createTitle")}
+          </h2>
           <form className="profile-form" onSubmit={handleSubmit}>
             <label className="field">
-              <span>Profile name</span>
+              <span>{t("profiles.form.name")}</span>
               <input
+                aria-label={t("profiles.form.name")}
                 value={formState.name}
                 onChange={(event) =>
                   setFormState((current) => ({ ...current, name: event.target.value }))
@@ -163,9 +224,10 @@ export function ProfilesPage() {
             </label>
 
             <label className="field">
-              <span>Group</span>
+              <span>{t("profiles.form.group")}</span>
               <input
-                value={formState.group}
+                aria-label={t("profiles.form.group")}
+                value={displayedGroupValue}
                 onChange={(event) =>
                   setFormState((current) => ({ ...current, group: event.target.value }))
                 }
@@ -173,8 +235,9 @@ export function ProfilesPage() {
             </label>
 
             <label className="field">
-              <span>Tags</span>
+              <span>{t("profiles.form.tags")}</span>
               <input
+                aria-label={t("profiles.form.tags")}
                 value={formState.tagsInput}
                 onChange={(event) =>
                   setFormState((current) => ({ ...current, tagsInput: event.target.value }))
@@ -184,8 +247,9 @@ export function ProfilesPage() {
 
             <div className="field-row">
               <label className="field">
-                <span>Proxy type</span>
+                <span>{t("profiles.form.proxyType")}</span>
                 <select
+                  aria-label={t("profiles.form.proxyType")}
                   value={formState.proxy.type}
                   onChange={(event) =>
                     setFormState((current) => ({
@@ -203,8 +267,9 @@ export function ProfilesPage() {
               </label>
 
               <label className="field">
-                <span>Proxy host</span>
+                <span>{t("profiles.form.proxyHost")}</span>
                 <input
+                  aria-label={t("profiles.form.proxyHost")}
                   value={formState.proxy.host}
                   onChange={(event) =>
                     setFormState((current) => ({
@@ -216,8 +281,9 @@ export function ProfilesPage() {
               </label>
 
               <label className="field">
-                <span>Proxy port</span>
+                <span>{t("profiles.form.proxyPort")}</span>
                 <input
+                  aria-label={t("profiles.form.proxyPort")}
                   value={formState.proxy.port}
                   onChange={(event) =>
                     setFormState((current) => ({
@@ -230,7 +296,9 @@ export function ProfilesPage() {
             </div>
 
             <button className="primary-button" type="submit">
-              {editingProfileId ? "Save changes" : "Create profile"}
+              {editingProfileId
+                ? t("profiles.form.submitSave")
+                : t("profiles.form.submitCreate")}
             </button>
           </form>
         </article>
@@ -252,33 +320,45 @@ export function ProfilesPage() {
                 <div className="profile-card__header">
                   <div>
                     <h2>{profile.name}</h2>
-                    <p>{profile.group}</p>
+                    <p>{formatGroupLabel(profile.group, t)}</p>
                   </div>
                   <div className="profile-badges">
                     <span className="status-pill status-pill--muted">
-                      {formatProxyLabel(profile)}
+                      {formatProxyLabel(profile, t)}
                     </span>
                     <span className="status-pill status-pill--muted">
-                      {lifecycleStatus}
+                      {formatRuntimeStatus(lifecycleStatus, t)}
                     </span>
                   </div>
                 </div>
                 <p>
-                  {profile.tags.length > 0 ? profile.tags.join(", ") : "No tags yet"}
+                  {profile.tags.length > 0 ? profile.tags.join(", ") : t("profiles.tags.none")}
                 </p>
                 <div className="runtime-details">
-                  <p>Debug port: {instance?.debugPort ?? "Not allocated"}</p>
-                  <p>Playwright endpoint: {instance?.wsEndpoint || "Not connected"}</p>
-                  {instance?.logs.at(-1) ? <p>{instance.logs.at(-1)?.message}</p> : null}
+                  <p>
+                    {t("profiles.runtime.debugPort", {
+                      value: instance?.debugPort ?? t("profiles.runtime.notAllocated"),
+                    })}
+                  </p>
+                  <p>
+                    {t("profiles.runtime.endpoint", {
+                      value: instance?.wsEndpoint || t("profiles.runtime.notConnected"),
+                    })}
+                  </p>
+                  {findLatestLog(instance) ? (
+                    <p>{formatRuntimeLog(findLatestLog(instance), t)}</p>
+                  ) : null}
                 </div>
                 {launchPlan ? (
                   <div className="runtime-plan">
-                    <p>Adapter: {launchPlan.adapterId}</p>
+                    <p>{t("profiles.runtime.adapter", { value: launchPlan.adapterId })}</p>
                     <p>
-                      Fingerprint: {launchPlan.fingerprint.language} ·{" "}
-                      {launchPlan.fingerprint.timezone} ·{" "}
-                      {launchPlan.fingerprint.resolution.width}x
-                      {launchPlan.fingerprint.resolution.height}
+                      {t("profiles.runtime.fingerprint", {
+                        language: launchPlan.fingerprint.language,
+                        timezone: launchPlan.fingerprint.timezone,
+                        width: launchPlan.fingerprint.resolution.width,
+                        height: launchPlan.fingerprint.resolution.height,
+                      })}
                     </p>
                     <ul className="runtime-plan__args">
                       {launchPlan.launchArgs.map((arg) => (
@@ -293,53 +373,59 @@ export function ProfilesPage() {
                       <button
                         className="secondary-button"
                         type="button"
-                        aria-label={`Restart ${profile.name}`}
-                        onClick={() => handleRestart(profile)}
+                        aria-label={t("profiles.aria.restart", { name: profile.name })}
+                        onClick={() => {
+                          void handleRestart(profile)
+                        }}
                       >
-                        Restart
+                        {t("profiles.actions.restart")}
                       </button>
                       <button
                         className="secondary-button"
                         type="button"
-                        aria-label={`Stop ${profile.name}`}
-                        onClick={() => handleStop(profile.id)}
+                        aria-label={t("profiles.aria.stop", { name: profile.name })}
+                        onClick={() => {
+                          void handleStop(profile.id)
+                        }}
                       >
-                        Stop
+                        {t("profiles.actions.stop")}
                       </button>
                     </>
                   ) : (
                     <button
                       className="secondary-button"
                       type="button"
-                      aria-label={`Start ${profile.name}`}
-                      onClick={() => handleStart(profile)}
+                      aria-label={t("profiles.aria.start", { name: profile.name })}
+                      onClick={() => {
+                        void handleStart(profile)
+                      }}
                     >
-                      Start
+                      {t("profiles.actions.start")}
                     </button>
                   )}
                   <button
                     className="secondary-button"
                     type="button"
-                    aria-label={`Edit ${profile.name}`}
+                    aria-label={t("profiles.aria.edit", { name: profile.name })}
                     onClick={() => handleEdit(profile)}
                   >
-                    Edit
+                    {t("profiles.actions.edit")}
                   </button>
                   <button
                     className="secondary-button"
                     type="button"
-                    aria-label={`Duplicate ${profile.name}`}
+                    aria-label={t("profiles.aria.duplicate", { name: profile.name })}
                     onClick={() => handleDuplicate(profile)}
                   >
-                    Duplicate
+                    {t("profiles.actions.duplicate")}
                   </button>
                   <button
                     className="secondary-button secondary-button--danger"
                     type="button"
-                    aria-label={`Delete ${profile.name}`}
+                    aria-label={t("profiles.aria.delete", { name: profile.name })}
                     onClick={() => handleDelete(profile.id)}
                   >
-                    Delete
+                    {t("profiles.actions.delete")}
                   </button>
                 </div>
               </article>
