@@ -55,11 +55,17 @@ Build the frontend bundle:
 npm run build
 ```
 
-Build the desktop binary:
+Build the desktop app and macOS installer artifacts:
 
 ```bash
 npm run tauri:build
 ```
+
+The packaged outputs are written to `src-tauri/target/release/bundle/`. On macOS this now includes:
+- `app/fingerprint-browser.app`
+- `dmg/fingerprint-browser_0.1.0_aarch64.dmg` or the matching build for your CPU
+
+Because the local build is unsigned, macOS may ask you to confirm the first launch from Finder or System Settings.
 
 ## Verification commands
 
