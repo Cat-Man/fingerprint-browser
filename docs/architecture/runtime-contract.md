@@ -1,6 +1,6 @@
 # Runtime Contract
 
-> Last updated: 2026-03-13
+> Last updated: 2026-03-17
 
 ## 1. 文档目标
 
@@ -33,7 +33,7 @@
 
 ## 4. 核心类型
 
-以下类型为建议 contract，作为 issue `#5` 及后续 native runtime 的统一依据。
+以下类型为当前 contract 基线，作为 issue `#5` 及后续 native runtime / automation 接入的统一依据。
 
 ```ts
 export type WebRtcPolicy = "default" | "proxy-only" | "disabled"
@@ -143,19 +143,21 @@ Chromium Runtime Adapter 至少需要输出以下参数类别：
 
 ## 7. Playwright / CDP 合同
 
-当前 contract 的目标不是立刻保证真实可连，而是先稳定字段定义。
+当前 contract 已经同时承担“字段稳定”和“真实原生运行时对接”两件事。
 
 Manager 至少需要能展示：
 
 - `debugPort`
+- `processId`
 - `wsEndpoint`
 - `adapterId`
 - 关键启动参数摘要
 
-Native Runtime 接入后，需要满足：
+当前 Tauri / Rust runtime 需要满足：
 
 - `chromium.connectOverCDP()` 可使用真实 endpoint 或 port
 - 如果浏览器尚未准备好，返回明确错误而不是静默失败
+- 可通过仓库中的 `npm run runtime:smoke -- <ws-endpoint>` 做基础连通性验证
 
 ## 8. 错误模型
 
@@ -186,11 +188,11 @@ export type RuntimeError = {
 
 ## 9. 兼容当前实现的迁移路径
 
-截至 2026-03-13，当前主线中：
+截至 2026-03-17，当前主线中：
 
 - `runtime/manager.ts` 已负责 lifecycle 抽象
-- `wsEndpoint` 仍是前端拼接的合同面
-- `sessionStorage` 仍是运行态临时存储
+- Tauri 模式会通过 `runtimeDesktop` 桥接返回真实 `processId` 与 `wsEndpoint`
+- 浏览器预览模式仍保留 `sessionStorage` 运行态回退
 
 迁移建议：
 
@@ -203,8 +205,8 @@ export type RuntimeError = {
 - 用真实返回值替换当前 session-backed `BrowserInstance`
 
 ### Phase 3
-- 接入 Playwright 真连接
-- 增加运行时错误通道和日志面板
+- 在应用内接入 Playwright 自动执行
+- 增加运行时错误通道、健康检查和日志面板
 
 ## 10. 验收标准
 
