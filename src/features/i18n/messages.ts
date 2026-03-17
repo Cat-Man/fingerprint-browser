@@ -68,8 +68,10 @@ const en = {
   "profiles.proxy.none": "No proxy configured",
   "profiles.tags.none": "No tags yet",
   "profiles.runtime.debugPort": "Debug port: {{value}}",
+  "profiles.runtime.processId": "Process ID: {{value}}",
   "profiles.runtime.endpoint": "Playwright endpoint: {{value}}",
   "profiles.runtime.notAllocated": "Not allocated",
+  "profiles.runtime.notAvailable": "Not available",
   "profiles.runtime.notConnected": "Not connected",
   "profiles.runtime.adapter": "Adapter: {{value}}",
   "profiles.runtime.fingerprint":
@@ -223,8 +225,10 @@ const zhCN: Record<keyof typeof en, string> = {
   "profiles.proxy.none": "未配置代理",
   "profiles.tags.none": "暂无标签",
   "profiles.runtime.debugPort": "调试端口：{{value}}",
+  "profiles.runtime.processId": "进程 ID：{{value}}",
   "profiles.runtime.endpoint": "Playwright 端点：{{value}}",
   "profiles.runtime.notAllocated": "未分配",
+  "profiles.runtime.notAvailable": "不可用",
   "profiles.runtime.notConnected": "未连接",
   "profiles.runtime.adapter": "适配器：{{value}}",
   "profiles.runtime.fingerprint":

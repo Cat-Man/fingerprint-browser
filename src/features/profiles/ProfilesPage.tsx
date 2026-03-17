@@ -341,6 +341,11 @@ export function ProfilesPage({ runtimeBridge }: ProfilesPageProps) {
                     })}
                   </p>
                   <p>
+                    {t("profiles.runtime.processId", {
+                      value: instance?.processId ?? t("profiles.runtime.notAvailable"),
+                    })}
+                  </p>
+                  <p>
                     {t("profiles.runtime.endpoint", {
                       value: instance?.wsEndpoint || t("profiles.runtime.notConnected"),
                     })}
