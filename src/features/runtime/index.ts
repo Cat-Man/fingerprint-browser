@@ -1,14 +1,16 @@
+import type { MessageKey } from "../i18n"
+
 export const runtimeDefaults = [
-  "Default proxy policy",
-  "Debug port allocation range",
-  "Launch safety checks for each instance",
-]
+  "settings.runtimeDefaults.proxyPolicy",
+  "settings.runtimeDefaults.debugPortRange",
+  "settings.runtimeDefaults.launchSafetyChecks",
+] as const satisfies readonly MessageKey[]
 
 export const runtimeDiagnostics = [
-  "Structured logs",
-  "Environment health checks",
-  "Browser runtime adapter status",
-]
+  "settings.diagnostics.structuredLogs",
+  "settings.diagnostics.healthChecks",
+  "settings.diagnostics.adapterStatus",
+] as const satisfies readonly MessageKey[]
 
 export {
   buildFingerprintConfig,
@@ -24,9 +26,12 @@ export {
   RUNTIME_STORAGE_KEY,
   findRuntimeInstance,
   loadRuntimeInstances,
+  restartProfileRuntime,
   restartProfileInstance,
   saveRuntimeInstances,
+  startProfileRuntime,
   startProfileInstance,
+  stopProfileRuntime,
   stopProfileInstance,
   summarizeRuntime,
   type BrowserInstance,

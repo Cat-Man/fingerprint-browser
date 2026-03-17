@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it } from "vitest"
+import { I18nProvider } from "../i18n"
 import {
   PROFILE_STORAGE_KEY,
   createEmptyProfileDraft,
@@ -140,5 +141,19 @@ describe("ProfilesPage", () => {
 
     expect(screen.getByText(/^stopped$/i)).toBeInTheDocument()
     expect(screen.getByText(/released profile lock/i)).toBeInTheDocument()
+  })
+
+  it("renders chinese form copy when the locale is zh-CN", () => {
+    render(
+      <I18nProvider initialLocale="zh-CN">
+        <ProfilesPage />
+      </I18nProvider>,
+    )
+
+    expect(screen.getByRole("heading", { name: "配置文件" })).toBeInTheDocument()
+    expect(screen.getByLabelText("配置名称")).toBeInTheDocument()
+    expect(screen.getByLabelText("分组")).toBeInTheDocument()
+    expect(screen.getByLabelText("分组")).toHaveValue("默认")
+    expect(screen.getByRole("button", { name: "创建配置文件" })).toBeInTheDocument()
   })
 })

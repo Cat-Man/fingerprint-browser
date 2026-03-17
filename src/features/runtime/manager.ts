@@ -1,14 +1,26 @@
 import type { BrowserProfile } from "../profiles"
+import {
+  createNativeRuntimeLaunchRequest,
+  desktopRuntimeBridge,
+  type DesktopRuntimeBridge,
+} from "../../lib/runtimeDesktop"
+import { resolveRuntimeAdapter } from "./adapter"
 
 export const RUNTIME_STORAGE_KEY = "fingerprint-browser.runtime.v1"
 const DEFAULT_DEBUG_PORT = 9222
 
 export type RuntimeStatus = "running" | "stopped"
+export type RuntimeLogMessageKey =
+  | "runtime.log.started"
+  | "runtime.log.restarted"
+  | "runtime.log.stopped"
 
 export type RuntimeLogEntry = {
   at: string
   level: "info" | "error"
   message: string
+  messageKey?: RuntimeLogMessageKey
+  params?: Record<string, string | number>
 }
 
 export type BrowserInstance = {
@@ -20,6 +32,7 @@ export type BrowserInstance = {
   wsEndpoint: string
   startedAt: string
   updatedAt: string
+  processId?: number
   lastError: string | null
   logs: RuntimeLogEntry[]
 }
@@ -76,6 +89,40 @@ export function startProfileInstance(
   }
 }
 
+export async function startProfileRuntime(
+  instances: BrowserInstance[],
+  profile: BrowserProfile,
+  runtimeBridge: DesktopRuntimeBridge = desktopRuntimeBridge,
+) {
+  if (!runtimeBridge.isTauri()) {
+    return startProfileInstance(instances, profile)
+  }
+
+  const adapter = resolveRuntimeAdapter(profile)
+
+  if (!adapter) {
+    throw new Error(`No runtime adapter available for ${profile.browserEngine}`)
+  }
+
+  const draft = startProfileInstance(instances, profile)
+  const nativeInstance = await runtimeBridge.launch(
+    createNativeRuntimeLaunchRequest(
+      profile,
+      adapter.prepareLaunch({
+        profile,
+        debugPort: draft.instance.debugPort,
+      }),
+      draft.instance.debugPort,
+    ),
+  )
+  const nextInstance = mergeRuntimeInstance(nativeInstance, draft.instance)
+
+  return {
+    instance: nextInstance,
+    instances: upsertInstance(instances, nextInstance),
+  }
+}
+
 export function stopProfileInstance(instances: BrowserInstance[], profileId: string) {
   const existing = findRuntimeInstance(instances, profileId)
 
@@ -89,12 +136,37 @@ export function stopProfileInstance(instances: BrowserInstance[], profileId: str
     status: "stopped",
     wsEndpoint: "",
     updatedAt: timestamp,
-    logs: appendLog(existing.logs, timestamp, "Stopped instance and released profile lock"),
+    logs: appendLog(existing.logs, timestamp, "runtime.log.stopped"),
   }
 
   return {
     instance: stoppedInstance,
     instances: upsertInstance(instances, stoppedInstance),
+  }
+}
+
+export async function stopProfileRuntime(
+  instances: BrowserInstance[],
+  profileId: string,
+  runtimeBridge: DesktopRuntimeBridge = desktopRuntimeBridge,
+) {
+  if (!runtimeBridge.isTauri()) {
+    return stopProfileInstance(instances, profileId)
+  }
+
+  const existing = findRuntimeInstance(instances, profileId)
+
+  if (!existing) {
+    throw new Error(`Profile ${profileId} does not have a runtime instance`)
+  }
+
+  const draft = stopProfileInstance(instances, profileId)
+  const nativeInstance = await runtimeBridge.stop({ profileId })
+  const nextInstance = mergeRuntimeInstance(nativeInstance, draft.instance)
+
+  return {
+    instance: nextInstance,
+    instances: upsertInstance(instances, nextInstance),
   }
 }
 
@@ -114,12 +186,53 @@ export function restartProfileInstance(
     profileName: profile.name,
     updatedAt: timestamp,
     wsEndpoint: buildWsEndpoint(existing.debugPort, profile.id),
-    logs: appendLog(existing.logs, timestamp, `Restarted instance on port ${existing.debugPort}`),
+    logs: appendLog(existing.logs, timestamp, "runtime.log.restarted", {
+      port: existing.debugPort,
+    }),
   }
 
   return {
     instance: restartedInstance,
     instances: upsertInstance(instances, restartedInstance),
+  }
+}
+
+export async function restartProfileRuntime(
+  instances: BrowserInstance[],
+  profile: BrowserProfile,
+  runtimeBridge: DesktopRuntimeBridge = desktopRuntimeBridge,
+) {
+  if (!runtimeBridge.isTauri()) {
+    return restartProfileInstance(instances, profile)
+  }
+
+  const existing = findRuntimeInstance(instances, profile.id)
+  const adapter = resolveRuntimeAdapter(profile)
+
+  if (!adapter) {
+    throw new Error(`No runtime adapter available for ${profile.browserEngine}`)
+  }
+
+  if (!existing || existing.status === "stopped") {
+    return startProfileRuntime(instances, profile, runtimeBridge)
+  }
+
+  const draft = restartProfileInstance(instances, profile)
+  const nativeInstance = await runtimeBridge.restart(
+    createNativeRuntimeLaunchRequest(
+      profile,
+      adapter.prepareLaunch({
+        profile,
+        debugPort: existing.debugPort,
+      }),
+      existing.debugPort,
+    ),
+  )
+  const nextInstance = mergeRuntimeInstance(nativeInstance, draft.instance)
+
+  return {
+    instance: nextInstance,
+    instances: upsertInstance(instances, nextInstance),
   }
 }
 
@@ -162,7 +275,20 @@ function createRunningInstance(
     startedAt: timestamp,
     updatedAt: timestamp,
     lastError: null,
-    logs: appendLog(previousLogs, timestamp, `Started instance on port ${debugPort}`),
+    logs: appendLog(previousLogs, timestamp, "runtime.log.started", {
+      port: debugPort,
+    }),
+  }
+}
+
+function mergeRuntimeInstance(
+  nextInstance: BrowserInstance,
+  fallbackInstance: BrowserInstance,
+): BrowserInstance {
+  return {
+    ...fallbackInstance,
+    ...nextInstance,
+    logs: nextInstance.logs.length > 0 ? nextInstance.logs : fallbackInstance.logs,
   }
 }
 
@@ -175,6 +301,18 @@ function buildWsEndpoint(debugPort: number, profileId: string) {
   return `ws://127.0.0.1:${debugPort}/devtools/browser/${profileId}`
 }
 
-function appendLog(logs: RuntimeLogEntry[], at: string, message: string): RuntimeLogEntry[] {
-  return [...logs, { at, level: "info", message }]
+function appendLog(
+  logs: RuntimeLogEntry[],
+  at: string,
+  messageKey: RuntimeLogMessageKey,
+  params?: Record<string, string | number>,
+): RuntimeLogEntry[] {
+  const message =
+    messageKey === "runtime.log.started"
+      ? `Started instance on port ${params?.port ?? ""}`
+      : messageKey === "runtime.log.restarted"
+        ? `Restarted instance on port ${params?.port ?? ""}`
+        : "Stopped instance and released profile lock"
+
+  return [...logs, { at, level: "info", message, messageKey, params }]
 }

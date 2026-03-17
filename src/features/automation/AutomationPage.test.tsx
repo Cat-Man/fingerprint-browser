@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it } from "vitest"
+import { I18nProvider } from "../i18n"
 import { createEmptyProfileDraft, createProfileFromDraft, saveProfiles } from "../profiles"
 import { AutomationPage } from "./AutomationPage"
 import { createRegressionRun, saveRegressionRuns } from "./storage"
@@ -68,5 +69,18 @@ describe("AutomationPage", () => {
 
     expect(screen.getByRole("heading", { name: /browserleaks/i })).toBeInTheDocument()
     expect(screen.getByText(/saved regression run for profile b on browserleaks/i)).toBeInTheDocument()
+  })
+
+  it("renders the empty state in chinese when the locale is zh-CN", () => {
+    render(
+      <I18nProvider initialLocale="zh-CN">
+        <AutomationPage />
+      </I18nProvider>,
+    )
+
+    expect(screen.getByRole("heading", { name: "检测实验室" })).toBeInTheDocument()
+    expect(
+      screen.getByText("暂无可用配置文件。请先创建配置文件，再进行检测记录。"),
+    ).toBeInTheDocument()
   })
 })

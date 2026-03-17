@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import { HashRouter, NavLink, Route, Routes } from "react-router-dom"
 import { AutomationPage } from "./features/automation/AutomationPage"
 import { loadRegressionRuns, summarizeRegressionRuns } from "./features/automation/storage"
+import { I18nProvider, useI18n, type AppLocale, type MessageKey } from "./features/i18n"
 import { ProfilesPage } from "./features/profiles/ProfilesPage"
 import {
   loadRuntimeInstances,
@@ -16,6 +17,10 @@ type OverviewCardProps = {
   title: string
   value: string
   helper: string
+}
+
+function pluralMessageKey(base: string, count: number) {
+  return `${base}.${count === 1 ? "one" : "other"}` as MessageKey
 }
 
 function OverviewCard({ title, value, helper }: OverviewCardProps) {
@@ -35,47 +40,58 @@ function DashboardPage({
   overview: DesktopOverview | null
   regressionSummary: ReturnType<typeof summarizeRegressionRuns>
 }) {
+  const { t } = useI18n()
   const bridgeStatus = overview
     ? overview.source === "tauri"
-      ? "Tauri connected"
-      : "Web preview fallback"
-    : "Loading bridge..."
+      ? t("dashboard.bridge.connected")
+      : t("dashboard.bridge.fallback")
+    : t("dashboard.bridge.loading")
   const runtimeSummary = summarizeRuntime(loadRuntimeInstances())
+  const runtimeTarget =
+    overview?.runtime === "browser"
+      ? t("common.runtime.browser")
+      : overview?.runtime ?? t("common.loading")
 
   return (
     <section className="page-shell">
       <header className="page-shell__header">
         <div>
-          <p className="eyebrow">MVP control center</p>
-          <h1>Dashboard</h1>
-          <p>
-            Track the local runtime, launch profiles, and keep your fingerprint
-            test workflow in one place.
-          </p>
+          <p className="eyebrow">{t("dashboard.eyebrow")}</p>
+          <h1>{t("dashboard.title")}</h1>
+          <p>{t("dashboard.description")}</p>
         </div>
-        <span className="status-pill">Local-only MVP</span>
+        <span className="status-pill">{t("dashboard.status.localOnly")}</span>
       </header>
 
       <div className="overview-grid">
         <OverviewCard
-          title="Desktop bridge"
+          title={t("dashboard.bridge.title")}
           value={bridgeStatus}
-          helper={`Runtime target: ${overview?.runtime ?? "loading"}`}
+          helper={t("dashboard.bridge.helper", { target: runtimeTarget })}
         />
         <OverviewCard
-          title="Manager app"
+          title={t("dashboard.manager.title")}
           value={overview?.appName ?? "fingerprint-browser"}
-          helper="React shell rendered inside the Tauri desktop host."
+          helper={t("dashboard.manager.helper")}
         />
         <OverviewCard
-          title="Running instances"
+          title={t("dashboard.instances.title")}
           value={String(runtimeSummary.runningCount)}
-          helper="Launch browsers with dedicated ports and proxy settings."
+          helper={t("dashboard.instances.helper")}
         />
         <OverviewCard
-          title="Regression runs"
-          value={`${regressionSummary.totalRuns} detection runs saved locally`}
-          helper={`${regressionSummary.profilesCovered} profiles covered. CreepJS and BrowserLeaks manual regression coverage.`}
+          title={t("dashboard.regressions.title")}
+          value={t(
+            pluralMessageKey("dashboard.regressions.value", regressionSummary.totalRuns),
+            { count: regressionSummary.totalRuns },
+          )}
+          helper={t(
+            pluralMessageKey(
+              "dashboard.regressions.helper",
+              regressionSummary.profilesCovered,
+            ),
+            { count: regressionSummary.profilesCovered },
+          )}
         />
       </div>
     </section>
@@ -83,33 +99,47 @@ function DashboardPage({
 }
 
 function SettingsPage() {
+  const { locale, setLocale, t } = useI18n()
+
   return (
     <section className="page-shell">
       <header className="page-shell__header">
         <div>
-          <p className="eyebrow">System defaults</p>
-          <h1>Settings</h1>
-          <p>
-            Configure app defaults, runtime behavior, and diagnostics before
-            connecting a real browser engine.
-          </p>
+          <p className="eyebrow">{t("settings.eyebrow")}</p>
+          <h1>{t("settings.title")}</h1>
+          <p>{t("settings.description")}</p>
         </div>
       </header>
 
       <div className="panel-list">
         <article className="panel-card">
-          <h2>Runtime defaults</h2>
+          <h2>{t("settings.language.title")}</h2>
+          <label className="field">
+            <span>{t("settings.language.label")}</span>
+            <select
+              aria-label={t("settings.language.label")}
+              value={locale}
+              onChange={(event) => setLocale(event.target.value as AppLocale)}
+            >
+              <option value="en">{t("settings.language.option.en")}</option>
+              <option value="zh-CN">{t("settings.language.option.zh-CN")}</option>
+            </select>
+          </label>
+          <p>{t("settings.language.help")}</p>
+        </article>
+        <article className="panel-card">
+          <h2>{t("settings.runtimeDefaults.title")}</h2>
           <ul>
             {runtimeDefaults.map((item) => (
-              <li key={item}>{item}</li>
+              <li key={item}>{t(item)}</li>
             ))}
           </ul>
         </article>
         <article className="panel-card">
-          <h2>Diagnostics</h2>
+          <h2>{t("settings.diagnostics.title")}</h2>
           <ul>
             {runtimeDiagnostics.map((item) => (
-              <li key={item}>{item}</li>
+              <li key={item}>{t(item)}</li>
             ))}
           </ul>
         </article>
@@ -118,14 +148,8 @@ function SettingsPage() {
   )
 }
 
-const navItems = [
-  { to: "/", label: "Dashboard" },
-  { to: "/profiles", label: "Profiles" },
-  { to: "/automation", label: "Detection Lab" },
-  { to: "/settings", label: "Settings" },
-]
-
 function AppLayout() {
+  const { t } = useI18n()
   const [overview, setOverview] = useState<DesktopOverview | null>(null)
   const [regressionSummary, setRegressionSummary] = useState(() =>
     summarizeRegressionRuns(loadRegressionRuns()),
@@ -160,19 +184,23 @@ function AppLayout() {
     setRegressionSummary(summarizeRegressionRuns(runs))
   }, [])
 
+  const navItems = [
+    { to: "/", label: t("nav.dashboard") },
+    { to: "/profiles", label: t("nav.profiles") },
+    { to: "/automation", label: t("nav.automation") },
+    { to: "/settings", label: t("nav.settings") },
+  ]
+
   return (
     <div className="app-shell">
       <aside className="app-shell__sidebar">
         <div>
           <p className="eyebrow">fingerprint-browser</p>
-          <h2>Desktop manager</h2>
-          <p className="sidebar-copy">
-            Bootstrap shell for the manager app that will orchestrate profiles,
-            runtime adapters, and automation connections.
-          </p>
+          <h2>{t("sidebar.title")}</h2>
+          <p className="sidebar-copy">{t("sidebar.description")}</p>
         </div>
 
-        <nav aria-label="Primary navigation" className="nav-list">
+        <nav aria-label={t("aria.primaryNavigation")} className="nav-list">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
@@ -208,9 +236,11 @@ function AppLayout() {
 
 function App() {
   return (
-    <HashRouter>
-      <AppLayout />
-    </HashRouter>
+    <I18nProvider>
+      <HashRouter>
+        <AppLayout />
+      </HashRouter>
+    </I18nProvider>
   )
 }
 
