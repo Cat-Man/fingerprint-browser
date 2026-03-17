@@ -1,6 +1,6 @@
 # fingerprint-browser System Design
 
-> Last updated: 2026-03-13
+> Last updated: 2026-03-17
 
 ## 1. 设计目标
 
@@ -36,7 +36,7 @@
                │ executes / resolves
                ▼
 ┌──────────────────────────────┐
-│ Native Runtime (planned)     │
+│ Native Runtime (Tauri/Rust)  │
 │ - Chromium launcher          │
 │ - Process supervisor         │
 │ - CDP / Playwright bridge    │
@@ -138,7 +138,7 @@
 3. 数据写入本地存储
 4. 页面重载后重新 hydrate
 
-### 5.3 实例启动（当前）
+### 5.3 实例启动（Web 预览回退）
 1. 用户点击 Start
 2. `runtime/manager.ts` 分配调试端口
 3. 检查是否存在 running 状态实例，防止重复启动
@@ -146,7 +146,7 @@
 5. 将运行态保存到 `sessionStorage`
 6. UI 展示状态、端口、日志
 
-### 5.4 实例启动（目标）
+### 5.4 实例启动（Tauri 原生路径）
 1. 用户点击 Start
 2. Runtime Adapter 生成 `LaunchPlan`
 3. Native Runtime 接收 `LaunchPlan`
@@ -193,10 +193,10 @@
 
 ## 7. 关键设计决策
 
-### 决策 A：先用前端适配层推进
+### 决策 A：先用前端适配层推进，再落到原生 launcher
 原因：
-- 当前本地环境缺少 Rust / cargo 验证条件
 - 先把领域接口跑通，更利于后续替换底层实现
+- 当前已经完成 Rust / Tauri launcher 落地，浏览器预览模式仍保留为回退路径
 
 ### 决策 B：Manager 不直接依赖 Chromium 启动细节
 原因：
@@ -210,12 +210,11 @@
 
 ## 8. 当前技术债
 
-截至 2026-03-13，系统仍有以下技术债：
+截至 2026-03-17，系统仍有以下技术债：
 
-- `README.md` 仍是 Vite 模板，未更新为项目说明
-- runtime manager 仍是 session-backed mock，不是原生进程管理
-- Playwright endpoint 目前是“合同面”，并非真实连接
+- 浏览器预览模式仍使用 `sessionStorage` 回退，不具备真实原生进程管理
 - Detection Lab 目前仍是手动记录工作流，尚未接入 Playwright 自动执行
+- 尚缺少运行时健康检查、崩溃探测和更完整的原生日志面板
 - Canvas / WebGL / Audio / ClientRects 仍未接入自动采集或注入校验
 
 
@@ -223,10 +222,10 @@
 
 建议按以下顺序继续：
 
-1. 接入真实 Chromium / native launcher
-2. 让 Lifecycle Manager 返回真实 wsEndpoint / process handle
-3. 把 Detection Lab 与 Playwright / 检测站点自动采集联通
-4. 为回归结果补充导出与对比视图
+1. 把 Detection Lab 与 Playwright / 检测站点自动采集联通
+2. 增加运行时健康检查、异常恢复和日志面板
+3. 为回归结果补充导出与对比视图
+4. 继续扩展更深层的指纹注入与校验能力
 
 ## 10. 相关文档
 

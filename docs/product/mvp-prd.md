@@ -1,6 +1,6 @@
 # fingerprint-browser MVP PRD
 
-> Last updated: 2026-03-13
+> Last updated: 2026-03-17
 
 ## 1. 产品目标
 
@@ -107,11 +107,12 @@ MVP 面向以下用户：
 - Tauri + React 基础壳体已建立
 - Dashboard / Profiles / Settings 基础页面已存在
 - Profile CRUD、分组、标签、独立代理、本地存储已完成第一版
-- 实例生命周期第一阶段切片已合入 `main`
+- 实例生命周期与原生 runtime 已合入 `main`
   - 支持启动 / 停止 / 重启
   - 支持调试端口分配
   - 支持 profile lock
-  - UI 可展示运行状态、端口、wsEndpoint 合同面
+  - Tauri / Rust 可启动 Chromium 系浏览器并发现真实 `wsEndpoint`
+  - UI 可展示运行状态、端口、`processId`、`wsEndpoint`
 - Runtime Adapter 已合入 `main`
   - 可从 profile 生成 `FingerprintConfig`
   - 可生成 Chromium `LaunchPlan` 与关键元数据
@@ -120,10 +121,17 @@ MVP 面向以下用户：
   - 内置 CreepJS / BrowserLeaks 目标与手工 checklist
   - 支持按 profile 记录回归结果并查看最近 diff
   - Dashboard 可展示检测覆盖情况
+- 中英切换已合入 `main`
+  - 支持 English / 简体中文切换
+  - 本地持久化用户语言选择
+  - 运行状态、日志提示、时间格式跟随语言切换
+- 仓库已具备基础运行验证命令
+  - `cargo test`
+  - `npm run tauri:build`
+  - `npm run runtime:smoke`
 
 ### 未完成能力
-- 真实 Chromium / Tauri runtime 接入
-- Playwright 真连接
+- 在应用内一键触发 Playwright / CDP 自动验证
 - 检测结果自动采集与回归脚本
 - 更深层指纹注入与自动校验（Canvas / WebGL / Audio / ClientRects）
 
@@ -132,18 +140,22 @@ MVP 面向以下用户：
 ### M1：工程骨架
 - 对应 issue `#2`
 - 目标：桌面壳、基础导航、桥接占位
+- 当前状态：已完成
 
 ### M2：Profile 管理
 - 对应 issue `#3`
 - 目标：可创建、编辑、复制、删除并持久化 profile
+- 当前状态：已完成
 
 ### M3：实例生命周期
 - 对应 issue `#4`
 - 目标：实例启停、状态展示、调试端口和 Playwright 入口合同面
+- 当前状态：已完成原生 runtime 接入与真实 `wsEndpoint` 暴露，自动化执行入口仍待接到 Detection Lab
 
 ### M4：Runtime Adapter
 - 对应 issue `#5`
 - 目标：定义稳定的指纹配置与启动参数生成逻辑
+- 当前状态：已完成
 
 ### M5：检测实验室
 - 对应 issue `#6`

@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it } from "vitest"
+import type { DesktopRuntimeBridge } from "../../lib/runtimeDesktop"
 import { I18nProvider } from "../i18n"
 import {
   PROFILE_STORAGE_KEY,
@@ -122,6 +123,45 @@ describe("ProfilesPage", () => {
     expect(
       screen.getByText("--force-webrtc-ip-handling-policy=disable_non_proxied_udp"),
     ).toBeInTheDocument()
+  })
+
+  it("shows the native process id when a profile launches through the desktop bridge", async () => {
+    const user = userEvent.setup()
+    const profileA = createProfileFromDraft({
+      ...createEmptyProfileDraft(),
+      name: "Profile A",
+    })
+    const runtimeBridge: DesktopRuntimeBridge = {
+      isTauri: () => true,
+      launch: async () => ({
+        id: profileA.id,
+        profileId: profileA.id,
+        profileName: profileA.name,
+        status: "running",
+        debugPort: 9333,
+        wsEndpoint: "ws://127.0.0.1:9333/devtools/browser/native",
+        startedAt: "2026-03-17T00:00:00.000Z",
+        updatedAt: "2026-03-17T00:00:00.000Z",
+        processId: 456,
+        lastError: null,
+        logs: [],
+      }),
+      restart: async () => {
+        throw new Error("not used")
+      },
+      stop: async () => {
+        throw new Error("not used")
+      },
+    }
+
+    saveProfiles([profileA])
+
+    render(<ProfilesPage runtimeBridge={runtimeBridge} />)
+
+    await user.click(screen.getByRole("button", { name: /start profile a/i }))
+
+    expect(screen.getByText(/^Debug port: 9333$/i)).toBeInTheDocument()
+    expect(screen.getByText(/^Process ID: 456$/i)).toBeInTheDocument()
   })
 
   it("restarts a running profile and frees the lock after stop", async () => {

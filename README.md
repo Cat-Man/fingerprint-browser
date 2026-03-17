@@ -1,64 +1,107 @@
 # fingerprint-browser
 
-一个面向本地多账号隔离、代理管理和自动化接入的开源指纹浏览器项目。
+Open-source fingerprint browser manager MVP built with Tauri, React, and Rust.
 
-## 项目目标
+The current app focuses on a local desktop control plane:
+- manage isolated browser profiles with independent proxy and fingerprint settings
+- launch, stop, and restart Chromium-family browser instances from the desktop host
+- expose CDP / Playwright connection metadata for running profiles
+- record manual regression runs for CreepJS and BrowserLeaks
+- switch the manager UI between English and Simplified Chinese
 
-构建一个可本地运行的开源指纹浏览器 MVP，优先覆盖：
+## Current status
 
-- 多 profile 隔离
-- 每个 profile 独立代理
-- 基础指纹配置与一致性控制
-- 浏览器实例启动/停止与状态管理
-- Playwright 连接能力
-- 基础检测回归
+Implemented today:
+- Tauri desktop shell with Rust commands bridged into the React UI
+- profile CRUD, grouping, tags, proxy settings, and local persistence
+- runtime adapter that turns a profile into a normalized fingerprint and launch plan
+- native Chromium-family runtime launcher in Tauri mode with real `wsEndpoint` discovery
+- detection lab for manual regression capture and diff review
+- bilingual manager UI (`English` / `简体中文`)
 
-## 技术方向
+Still planned:
+- automatic detection collection through Playwright
+- deeper anti-detect fingerprint injection and verification
+- richer runtime health checks and log views
 
-项目建议采用两层结构：
+## Quickstart
 
-1. Manager App：负责 profile、代理、分组、导入导出、日志、更新
-2. Browser Runtime：负责浏览器启动、指纹参数注入、自动化兼容
+Requirements:
+- Node.js 20+
+- Rust / Cargo
+- macOS with an installed Chromium-family browser in a standard app path (`Google Chrome`, `Chromium`, `Brave Browser`, or `Microsoft Edge`)
 
-当前优先选择 Chromium 路线。
+Install dependencies:
 
-- 产品层参考：`zhom/donutbrowser`
-- Chromium 指纹能力参考：`adryfish/fingerprint-chromium`
-- stealth 思路参考：`daijro/camoufox`
+```bash
+npm install
+```
 
-## MVP 路线图
+Run the web preview:
 
-- #1 `MVP 规划：开源指纹浏览器 v0.1`
-- #2 `初始化项目骨架：Tauri + React + Rust`
-- #3 `Profile 与代理管理：本地存储、分组、独立代理`
-- #4 `实例生命周期管理：启动守护进程、端口分配与 Playwright 桥接`
-- #5 `Browser Runtime Adapter：指纹配置模型与浏览器启动参数`
-- #6 `检测实验室：CreepJS / BrowserLeaks 回归检查`
+```bash
+npm run dev
+```
 
-## 首版范围
+Run the Tauri desktop app:
 
-首版只解决最核心问题：
+```bash
+npm run tauri:dev
+```
 
-- 创建多个隔离 profile
-- 为 profile 配置独立代理
-- 生成并应用基础指纹参数
-- 启动浏览器实例并查看状态
-- 暴露 Playwright 可连接入口
-- 对检测站点做最小回归验证
+Build the frontend bundle:
 
-## 非首版范围
+```bash
+npm run build
+```
 
-以下能力暂不纳入 MVP：
+Build the desktop binary:
 
-- 云同步
-- 团队协作
-- VPN / WireGuard 集成
-- 插件市场
-- 多端实时同步
+```bash
+npm run tauri:build
+```
 
-## 参考项目
+## Verification commands
 
-- https://github.com/daijro/camoufox
-- https://github.com/adryfish/fingerprint-chromium
-- https://github.com/zhom/donutbrowser
-- https://github.com/Virtual-Browser/VirtualBrowser
+Frontend:
+
+```bash
+npm test
+npm run lint
+npm run build
+```
+
+Rust / Tauri:
+
+```bash
+cd src-tauri && cargo test
+npm run tauri:build
+```
+
+## Runtime smoke check
+
+When you already have a running browser endpoint, you can verify Playwright/CDP connectivity with:
+
+```bash
+npm run runtime:smoke -- ws://127.0.0.1:9222/devtools/browser/<id>
+```
+
+The smoke utility connects through `playwright-core`, prints the browser version, and closes the session.
+
+## Project structure
+
+- `src/App.tsx` - app shell, routing, dashboard, and settings
+- `src/features/profiles/` - profile storage and management UI
+- `src/features/runtime/` - runtime lifecycle manager and launch adapter
+- `src/features/automation/` - detection lab and regression storage
+- `src/features/i18n/` - locale state, translations, and formatting helpers
+- `src/lib/desktop.ts` - desktop overview bridge
+- `src/lib/runtimeDesktop.ts` - Tauri runtime launch / stop / restart bridge
+- `src-tauri/src/runtime.rs` - native Chromium-family launcher and CDP endpoint discovery
+- `docs/` - PRD, architecture, and implementation plans
+
+## Related docs
+
+- `docs/product/mvp-prd.md`
+- `docs/architecture/system-design.md`
+- `docs/architecture/runtime-contract.md`
