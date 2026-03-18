@@ -6,7 +6,7 @@ The current app focuses on a local desktop control plane:
 - manage isolated browser profiles with independent proxy and fingerprint settings
 - launch, stop, and restart Chromium-family browser instances from the desktop host
 - expose CDP / Playwright connection metadata for running profiles
-- record manual regression runs for CreepJS and BrowserLeaks
+- auto-capture and record regression runs for CreepJS and BrowserLeaks
 - switch the manager UI between English and Simplified Chinese
 
 ## Current status
@@ -16,12 +16,12 @@ Implemented today:
 - profile CRUD, grouping, tags, proxy settings, and local persistence
 - runtime adapter that turns a profile into a normalized fingerprint and launch plan
 - native Chromium-family runtime launcher in Tauri mode with real `wsEndpoint` discovery
-- detection lab for manual regression capture and diff review
+- detection lab with running-profile auto capture, manual review, and diff history
 - bilingual manager UI (`English` / `简体中文`)
 
 Still planned:
-- automatic detection collection through Playwright
-- deeper anti-detect fingerprint injection and verification
+- deeper site-specific parsing for CreepJS / BrowserLeaks result pages
+- stronger anti-detect fingerprint injection and verification
 - richer runtime health checks and log views
 
 ## Quickstart
@@ -102,8 +102,10 @@ The smoke utility connects through `playwright-core`, prints the browser version
 - `src/features/automation/` - detection lab and regression storage
 - `src/features/i18n/` - locale state, translations, and formatting helpers
 - `src/lib/desktop.ts` - desktop overview bridge
+- `src/lib/automationDesktop.ts` - Tauri detection-probe bridge
 - `src/lib/runtimeDesktop.ts` - Tauri runtime launch / stop / restart bridge
 - `src-tauri/src/runtime.rs` - native Chromium-family launcher and CDP endpoint discovery
+- `src-tauri/src/automation.rs` - native CDP probe for Detection Lab auto capture
 - `docs/` - PRD, architecture, and implementation plans
 
 ## Related docs
