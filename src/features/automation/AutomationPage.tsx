@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState } from "react"
 import type { ChangeEvent, FormEvent } from "react"
+import {
+  desktopAutomationBridge,
+  type DesktopAutomationBridge,
+} from "../../lib/automationDesktop"
 import { useI18n, type MessageKey } from "../i18n"
 import { loadProfiles, type BrowserProfile } from "../profiles"
-import { buildFingerprintConfig } from "../runtime"
+import { buildFingerprintConfig, findRuntimeInstance, loadRuntimeInstances } from "../runtime"
 import {
   REGRESSION_FIELDS,
   createEmptyObservedValues,
@@ -21,6 +25,7 @@ import {
 
 type AutomationPageProps = {
   onRunsChanged?: (runs: RegressionRun[]) => void
+  automationBridge?: DesktopAutomationBridge
 }
 
 type LabFormState = {
@@ -105,12 +110,17 @@ function createInitialFormState(
   }
 }
 
-export function AutomationPage({ onRunsChanged }: AutomationPageProps) {
+export function AutomationPage({
+  onRunsChanged,
+  automationBridge = desktopAutomationBridge,
+}: AutomationPageProps) {
   const { t, formatDateTime } = useI18n()
   const [profiles] = useState(() => loadProfiles())
   const [runs, setRuns] = useState(() => loadRegressionRuns())
+  const [instances] = useState(() => loadRuntimeInstances())
   const [formState, setFormState] = useState(() => createInitialFormState(profiles, loadRegressionRuns()))
   const [feedback, setFeedback] = useState("")
+  const [isCapturing, setIsCapturing] = useState(false)
 
   useEffect(() => {
     saveRegressionRuns(runs)
@@ -121,7 +131,16 @@ export function AutomationPage({ onRunsChanged }: AutomationPageProps) {
     () => profiles.find((profile) => profile.id === formState.profileId),
     [formState.profileId, profiles],
   )
+  const selectedInstance = useMemo(
+    () => findRuntimeInstance(instances, formState.profileId),
+    [formState.profileId, instances],
+  )
   const selectedTarget = getDetectionTarget(formState.targetId)
+  const canAutoCapture =
+    automationBridge.isTauri() &&
+    selectedInstance?.status === "running" &&
+    Boolean(selectedInstance.wsEndpoint) &&
+    Boolean(selectedTarget)
   const summary = useMemo(() => summarizeRegressionRuns(runs), [runs])
   const recentRuns = useMemo(
     () =>
@@ -211,6 +230,38 @@ export function AutomationPage({ onRunsChanged }: AutomationPageProps) {
       ...current,
       notes: "",
     }))
+  }
+
+  async function handleAutoCapture() {
+    if (!selectedProfile || !selectedTarget || !selectedInstance?.wsEndpoint) {
+      setFeedback(t("automation.feedback.runtimeRequired"))
+      return
+    }
+
+    setIsCapturing(true)
+
+    try {
+      const result = await automationBridge.runProbe({
+        profileId: selectedProfile.id,
+        targetId: selectedTarget.id,
+        targetUrl: selectedTarget.url,
+        wsEndpoint: selectedInstance.wsEndpoint,
+      })
+
+      setFormState((current) => ({
+        ...current,
+        observed: result.observed,
+      }))
+      setFeedback(t("automation.feedback.probeCaptured"))
+    } catch (error) {
+      setFeedback(
+        t("automation.feedback.probeFailed", {
+          reason: error instanceof Error ? error.message : String(error),
+        }),
+      )
+    } finally {
+      setIsCapturing(false)
+    }
   }
 
   if (profiles.length === 0) {
@@ -306,6 +357,21 @@ export function AutomationPage({ onRunsChanged }: AutomationPageProps) {
               />
             </label>
 
+            <p>
+              {canAutoCapture
+                ? t("automation.runtime.connected")
+                : t("automation.feedback.runtimeRequired")}
+            </p>
+            <button
+              className="secondary-button"
+              type="button"
+              disabled={!canAutoCapture || isCapturing}
+              onClick={() => {
+                void handleAutoCapture()
+              }}
+            >
+              {isCapturing ? t("common.loading") : t("automation.form.autoCapture")}
+            </button>
             <button className="primary-button" type="submit">
               {t("automation.form.save")}
             </button>
