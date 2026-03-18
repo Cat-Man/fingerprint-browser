@@ -1,4 +1,15 @@
+mod automation;
+mod runtime;
+
+#[cfg(test)]
+mod automation_tests;
+
+#[cfg(test)]
+mod runtime_tests;
+
 use serde::Serialize;
+use automation::run_detection_probe;
+use runtime::{launch_runtime, restart_runtime, stop_runtime, RuntimeRegistry};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -22,6 +33,7 @@ fn get_app_overview() -> AppOverview {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
+    .manage(RuntimeRegistry::default())
     .setup(|app| {
       if cfg!(debug_assertions) {
         app.handle().plugin(
@@ -32,7 +44,13 @@ pub fn run() {
       }
       Ok(())
     })
-    .invoke_handler(tauri::generate_handler![get_app_overview])
+    .invoke_handler(tauri::generate_handler![
+      get_app_overview,
+      run_detection_probe,
+      launch_runtime,
+      restart_runtime,
+      stop_runtime
+    ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
