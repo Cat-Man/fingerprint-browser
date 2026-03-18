@@ -1,8 +1,9 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { beforeEach, describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { I18nProvider } from "../i18n"
 import { createEmptyProfileDraft, createProfileFromDraft, saveProfiles } from "../profiles"
+import { saveRuntimeInstances } from "../runtime"
 import { AutomationPage } from "./AutomationPage"
 import { createRegressionRun, saveRegressionRuns } from "./storage"
 
@@ -69,6 +70,76 @@ describe("AutomationPage", () => {
 
     expect(screen.getByRole("heading", { name: /browserleaks/i })).toBeInTheDocument()
     expect(screen.getByText(/saved regression run for profile b on browserleaks/i)).toBeInTheDocument()
+  })
+
+  it("auto-captures observed fields from a running profile", async () => {
+    const user = userEvent.setup()
+    const profileA = createProfileFromDraft({
+      ...createEmptyProfileDraft(),
+      name: "Profile A",
+    })
+
+    saveProfiles([profileA])
+    saveRuntimeInstances([
+      {
+        id: profileA.id,
+        profileId: profileA.id,
+        profileName: profileA.name,
+        status: "running",
+        debugPort: 9222,
+        wsEndpoint: "ws://127.0.0.1:9222/devtools/browser/test",
+        startedAt: "2026-03-18T00:00:00.000Z",
+        updatedAt: "2026-03-18T00:00:00.000Z",
+        processId: 456,
+        lastError: null,
+        logs: [],
+      },
+    ])
+
+    const automationBridge = {
+      isTauri: () => true,
+      runProbe: vi.fn().mockResolvedValue({
+        observed: {
+          userAgent: "Probe UA",
+          language: "zh-CN",
+          timezone: "Asia/Shanghai",
+          webrtc: "enabled",
+          canvas: "canvas-hash",
+          webgl: "webgl-hash",
+          audio: "audio-sum",
+          clientRects: "rects-hash",
+        },
+        capturedAt: "2026-03-18T00:00:00.000Z",
+        targetUrl: "https://example.com",
+      }),
+    }
+
+    render(<AutomationPage automationBridge={automationBridge} />)
+
+    await user.click(screen.getByRole("button", { name: /auto capture fields/i }))
+
+    expect(automationBridge.runProbe).toHaveBeenCalledTimes(1)
+    expect(screen.getByLabelText(/timezone/i)).toHaveValue("Asia/Shanghai")
+    expect(screen.getByLabelText(/clientrects/i)).toHaveValue("rects-hash")
+    expect(screen.getByText(/captured latest values from the running profile/i)).toBeInTheDocument()
+  })
+
+  it("shows that a profile must be running before auto capture is available", () => {
+    const profileA = createProfileFromDraft({
+      ...createEmptyProfileDraft(),
+      name: "Profile A",
+    })
+
+    saveProfiles([profileA])
+
+    render(<AutomationPage />)
+
+    expect(
+      screen.getByText(/start the selected profile first to run automated capture/i),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: /auto capture fields/i }),
+    ).toBeDisabled()
   })
 
   it("renders the empty state in chinese when the locale is zh-CN", () => {

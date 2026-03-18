@@ -110,9 +110,17 @@ const en = {
   "automation.form.profile": "Profile",
   "automation.form.target": "Target",
   "automation.form.notes": "Notes",
+  "automation.form.autoCapture": "Auto capture fields",
   "automation.form.save": "Save regression run",
   "automation.feedback.saved":
     "Saved regression run for {{profile}} on {{target}}.",
+  "automation.feedback.probeCaptured":
+    "Captured latest values from the running profile. Review and save when ready.",
+  "automation.feedback.probeFailed": "Automated capture failed: {{reason}}",
+  "automation.feedback.runtimeRequired":
+    "Start the selected profile first to run automated capture.",
+  "automation.runtime.connected":
+    "Running profile detected. Auto capture will query the live wsEndpoint.",
   "automation.field.userAgent": "User agent",
   "automation.field.language": "Language",
   "automation.field.timezone": "Timezone",
@@ -267,8 +275,15 @@ const zhCN: Record<keyof typeof en, string> = {
   "automation.form.profile": "配置文件",
   "automation.form.target": "目标站点",
   "automation.form.notes": "备注",
+  "automation.form.autoCapture": "自动采集字段",
   "automation.form.save": "保存回归运行",
   "automation.feedback.saved": "已为 {{profile}} 保存 {{target}} 回归记录。",
+  "automation.feedback.probeCaptured":
+    "已从运行中的配置文件采集最新字段，可继续检查后保存。",
+  "automation.feedback.probeFailed": "自动采集失败：{{reason}}",
+  "automation.feedback.runtimeRequired": "请先启动当前选中的配置文件，再执行自动采集。",
+  "automation.runtime.connected":
+    "已检测到运行中的配置文件，自动采集会直接查询当前 wsEndpoint。",
   "automation.field.userAgent": "User agent",
   "automation.field.language": "语言",
   "automation.field.timezone": "时区",

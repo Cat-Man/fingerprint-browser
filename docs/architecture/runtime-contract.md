@@ -1,6 +1,6 @@
 # Runtime Contract
 
-> Last updated: 2026-03-17
+> Last updated: 2026-03-18
 
 ## 1. 文档目标
 
@@ -30,6 +30,7 @@
 - 启动 / 停止真实浏览器进程
 - 管理调试端口、数据目录、进程句柄
 - 返回真实连接信息与错误
+- 为 Detection Lab 自动采集提供可 attach 的 `wsEndpoint`
 
 ## 4. 核心类型
 
@@ -159,6 +160,32 @@ Manager 至少需要能展示：
 - 如果浏览器尚未准备好，返回明确错误而不是静默失败
 - 可通过仓库中的 `npm run runtime:smoke -- <ws-endpoint>` 做基础连通性验证
 
+Detection Lab 自动采集当前新增的 contract：
+
+```ts
+export type DetectionProbeRequest = {
+  profileId: string
+  targetId: "creepjs" | "browserleaks"
+  targetUrl: string
+  wsEndpoint: string
+}
+
+export type DetectionProbeResult = {
+  observed: {
+    userAgent: string
+    language: string
+    timezone: string
+    webrtc: string
+    canvas: string
+    webgl: string
+    audio: string
+    clientRects: string
+  }
+  capturedAt: string
+  targetUrl: string
+}
+```
+
 ## 8. 错误模型
 
 建议使用结构化错误：
@@ -188,10 +215,11 @@ export type RuntimeError = {
 
 ## 9. 兼容当前实现的迁移路径
 
-截至 2026-03-17，当前主线中：
+截至 2026-03-18，当前主线中：
 
 - `runtime/manager.ts` 已负责 lifecycle 抽象
 - Tauri 模式会通过 `runtimeDesktop` 桥接返回真实 `processId` 与 `wsEndpoint`
+- Detection Lab 已可通过 `automationDesktop` 桥接向运行中的实例发起 probe
 - 浏览器预览模式仍保留 `sessionStorage` 运行态回退
 
 迁移建议：
@@ -205,7 +233,7 @@ export type RuntimeError = {
 - 用真实返回值替换当前 session-backed `BrowserInstance`
 
 ### Phase 3
-- 在应用内接入 Playwright 自动执行
+- 深化站点级检测解析与自动结论
 - 增加运行时错误通道、健康检查和日志面板
 
 ## 10. 验收标准

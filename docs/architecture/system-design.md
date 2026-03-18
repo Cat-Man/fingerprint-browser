@@ -1,6 +1,6 @@
 # fingerprint-browser System Design
 
-> Last updated: 2026-03-17
+> Last updated: 2026-03-18
 
 ## 1. 设计目标
 
@@ -122,8 +122,9 @@
 
 - CreepJS / BrowserLeaks 目标定义
 - 手工回归 checklist
+- 基于 `wsEndpoint` 的自动采集入口
 - 回归记录存储与 diff 对比
-- 未来的 ws endpoint / attach / reconnect 信息
+- attach / reconnect 信息与 probe 结果回填
 
 ## 5. 关键数据流
 
@@ -157,9 +158,10 @@
 ### 5.5 检测实验室（当前）
 1. 用户在 Detection Lab 选择 profile 与检测站点
 2. 页面根据 profile 预填基础 fingerprint 期望值
-3. 用户手工访问 CreepJS / BrowserLeaks 并记录观测结果
-4. Regression storage 将结果写入 `localStorage`
-5. 页面展示最近两次 run 的字段级 diff
+3. 如果 profile 正在运行，页面可通过 `wsEndpoint` 触发自动采集并回填字段
+4. 用户可继续补充备注，或改为手工调整字段
+5. Regression storage 将结果写入 `localStorage`
+6. 页面展示最近两次 run 的字段级 diff
 
 ## 6. 领域模型
 
@@ -210,12 +212,12 @@
 
 ## 8. 当前技术债
 
-截至 2026-03-17，系统仍有以下技术债：
+截至 2026-03-18，系统仍有以下技术债：
 
 - 浏览器预览模式仍使用 `sessionStorage` 回退，不具备真实原生进程管理
-- Detection Lab 目前仍是手动记录工作流，尚未接入 Playwright 自动执行
+- Detection Lab 已具备自动采集入口，但尚未直接解析 CreepJS / BrowserLeaks 页面摘要
 - 尚缺少运行时健康检查、崩溃探测和更完整的原生日志面板
-- Canvas / WebGL / Audio / ClientRects 仍未接入自动采集或注入校验
+- 更深层指纹注入与校验仍未覆盖 Canvas / WebGL / Audio / ClientRects 的对抗能力
 
 
 ## 9. 下一步实现顺序
