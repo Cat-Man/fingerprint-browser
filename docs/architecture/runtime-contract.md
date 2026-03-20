@@ -1,6 +1,6 @@
 # Runtime Contract
 
-> Last updated: 2026-03-18
+> Last updated: 2026-03-20
 
 ## 1. 文档目标
 
@@ -170,6 +170,12 @@ export type DetectionProbeRequest = {
   wsEndpoint: string
 }
 
+export type DetectionProbeArtifact = {
+  id: string
+  url: string
+  text: string
+}
+
 export type DetectionProbeResult = {
   observed: {
     userAgent: string
@@ -181,10 +187,17 @@ export type DetectionProbeResult = {
     audio: string
     clientRects: string
   }
+  artifacts: DetectionProbeArtifact[]
   capturedAt: string
   targetUrl: string
 }
 ```
+
+其中：
+
+- `observed` 继续承担字段级回填
+- `artifacts` 承担站点级摘要解析所需的目标页面文本工件
+- BrowserLeaks 允许由多个子页面（如 `/javascript`、`/webrtc`、`/canvas`、`/webgl`、`/rects`）共同组成一次摘要输入
 
 ## 8. 错误模型
 
@@ -215,7 +228,7 @@ export type RuntimeError = {
 
 ## 9. 兼容当前实现的迁移路径
 
-截至 2026-03-18，当前主线中：
+截至 2026-03-20，当前主线中：
 
 - `runtime/manager.ts` 已负责 lifecycle 抽象
 - Tauri 模式会通过 `runtimeDesktop` 桥接返回真实 `processId` 与 `wsEndpoint`
