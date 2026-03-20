@@ -124,6 +124,149 @@ describe("AutomationPage", () => {
     expect(screen.getByText(/captured latest values from the running profile/i)).toBeInTheDocument()
   })
 
+  it("renders an auto summary after capture when target artifacts are available", async () => {
+    const user = userEvent.setup()
+    const profileA = createProfileFromDraft({
+      ...createEmptyProfileDraft(),
+      name: "Profile A",
+    })
+
+    saveProfiles([profileA])
+    saveRuntimeInstances([
+      {
+        id: profileA.id,
+        profileId: profileA.id,
+        profileName: profileA.name,
+        status: "running",
+        debugPort: 9222,
+        wsEndpoint: "ws://127.0.0.1:9222/devtools/browser/test",
+        startedAt: "2026-03-18T00:00:00.000Z",
+        updatedAt: "2026-03-18T00:00:00.000Z",
+        processId: 456,
+        lastError: null,
+        logs: [],
+      },
+    ])
+
+    const automationBridge = {
+      isTauri: () => true,
+      runProbe: vi.fn().mockResolvedValue({
+        observed: {
+          userAgent: "Probe UA",
+          language: "zh-CN",
+          timezone: "Asia/Shanghai",
+          webrtc: "enabled",
+          canvas: "canvas-hash",
+          webgl: "webgl-hash",
+          audio: "audio-sum",
+          clientRects: "rects-hash",
+        },
+        artifacts: [
+          {
+            id: "javascript",
+            url: "https://browserleaks.com/javascript",
+            text: ["userAgent\tMozilla/5.0", "language\tzh-CN", "webdriver\ttrue"].join(
+              "\n",
+            ),
+          },
+          {
+            id: "webrtc",
+            url: "https://browserleaks.com/webrtc",
+            text: [
+              "WebRTC Leak Test\t✔",
+              "No Local IP Leak",
+              "Public IP Address\t134.195.101.220",
+            ].join("\n"),
+          },
+          {
+            id: "canvas",
+            url: "https://browserleaks.com/canvas",
+            text: ["Signature\tABCDEF", "Uniqueness\t99.96%"].join("\n"),
+          },
+          {
+            id: "webgl",
+            url: "https://browserleaks.com/webgl",
+            text: [
+              "WebGL Report Hash\tHASH123",
+              "Unmasked Renderer\tANGLE Renderer",
+            ].join("\n"),
+          },
+          {
+            id: "rects",
+            url: "https://browserleaks.com/rects",
+            text: "Full Hash\tRECTS123",
+          },
+        ],
+        capturedAt: "2026-03-18T00:00:00.000Z",
+        targetUrl: "https://browserleaks.com/",
+      }),
+    }
+
+    render(<AutomationPage automationBridge={automationBridge} />)
+
+    await user.selectOptions(screen.getByLabelText(/^target$/i), "browserleaks")
+    await user.click(screen.getByRole("button", { name: /auto capture fields/i }))
+
+    expect(screen.getByRole("heading", { name: /auto summary/i })).toBeInTheDocument()
+    expect(screen.getByText("No Local IP Leak · webdriver true")).toBeInTheDocument()
+    expect(screen.getByText(/canvas signature/i)).toBeInTheDocument()
+    expect(screen.getByText(/ABCDEF/)).toBeInTheDocument()
+  })
+
+  it("shows a summary fallback when capture artifacts are unavailable", async () => {
+    const user = userEvent.setup()
+    const profileA = createProfileFromDraft({
+      ...createEmptyProfileDraft(),
+      name: "Profile A",
+    })
+
+    saveProfiles([profileA])
+    saveRuntimeInstances([
+      {
+        id: profileA.id,
+        profileId: profileA.id,
+        profileName: profileA.name,
+        status: "running",
+        debugPort: 9222,
+        wsEndpoint: "ws://127.0.0.1:9222/devtools/browser/test",
+        startedAt: "2026-03-18T00:00:00.000Z",
+        updatedAt: "2026-03-18T00:00:00.000Z",
+        processId: 456,
+        lastError: null,
+        logs: [],
+      },
+    ])
+
+    const automationBridge = {
+      isTauri: () => true,
+      runProbe: vi.fn().mockResolvedValue({
+        observed: {
+          userAgent: "Probe UA",
+          language: "zh-CN",
+          timezone: "Asia/Shanghai",
+          webrtc: "enabled",
+          canvas: "canvas-hash",
+          webgl: "webgl-hash",
+          audio: "audio-sum",
+          clientRects: "rects-hash",
+        },
+        artifacts: [],
+        capturedAt: "2026-03-18T00:00:00.000Z",
+        targetUrl: "https://example.com",
+      }),
+    }
+
+    render(<AutomationPage automationBridge={automationBridge} />)
+
+    await user.click(screen.getByRole("button", { name: /auto capture fields/i }))
+
+    expect(screen.getByRole("heading", { name: /auto summary/i })).toBeInTheDocument()
+    expect(
+      screen.getByText(/auto summary is unavailable for the current target/i),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText(/timezone/i)).toHaveValue("Asia/Shanghai")
+  })
+
   it("shows that a profile must be running before auto capture is available", () => {
     const profileA = createProfileFromDraft({
       ...createEmptyProfileDraft(),

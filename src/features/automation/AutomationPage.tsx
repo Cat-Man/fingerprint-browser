@@ -8,6 +8,10 @@ import { useI18n, type MessageKey } from "../i18n"
 import { loadProfiles, type BrowserProfile } from "../profiles"
 import { buildFingerprintConfig, findRuntimeInstance, loadRuntimeInstances } from "../runtime"
 import {
+  summarizeDetectionArtifacts,
+  type DetectionSiteSummary,
+} from "./summary"
+import {
   REGRESSION_FIELDS,
   createEmptyObservedValues,
   createRegressionRun,
@@ -121,6 +125,8 @@ export function AutomationPage({
   const [formState, setFormState] = useState(() => createInitialFormState(profiles, loadRegressionRuns()))
   const [feedback, setFeedback] = useState("")
   const [isCapturing, setIsCapturing] = useState(false)
+  const [capturedSummary, setCapturedSummary] = useState<DetectionSiteSummary | null>(null)
+  const [hasSummaryAttempt, setHasSummaryAttempt] = useState(false)
 
   useEffect(() => {
     saveRegressionRuns(runs)
@@ -173,6 +179,9 @@ export function AutomationPage({
       ? getLatestRunForSelection(runs, nextProfile.id, formState.targetId)
       : undefined
 
+    setCapturedSummary(null)
+    setHasSummaryAttempt(false)
+
     setFormState((current) => ({
       ...current,
       profileId: event.target.value,
@@ -185,6 +194,9 @@ export function AutomationPage({
     const latestRun = selectedProfile
       ? getLatestRunForSelection(runs, selectedProfile.id, nextTargetId)
       : undefined
+
+    setCapturedSummary(null)
+    setHasSummaryAttempt(false)
 
     setFormState((current) => ({
       ...current,
@@ -247,11 +259,18 @@ export function AutomationPage({
         targetUrl: selectedTarget.url,
         wsEndpoint: selectedInstance.wsEndpoint,
       })
+      const nextSummary = summarizeDetectionArtifacts({
+        targetId: selectedTarget.id,
+        observed: result.observed,
+        artifacts: result.artifacts,
+      })
 
       setFormState((current) => ({
         ...current,
         observed: result.observed,
       }))
+      setCapturedSummary(nextSummary)
+      setHasSummaryAttempt(true)
       setFeedback(t("automation.feedback.probeCaptured"))
     } catch (error) {
       setFeedback(
@@ -398,6 +417,29 @@ export function AutomationPage({
                 </ol>
               </>
             ) : null}
+          </article>
+
+          <article className="panel-card">
+            <h2>{t("automation.summary.title")}</h2>
+            {capturedSummary ? (
+              <>
+                {capturedSummary.headline ? <p>{capturedSummary.headline}</p> : null}
+                <ul>
+                  {capturedSummary.items.map((item) => (
+                    <li key={`${item.label}-${item.value}`}>
+                      <strong>{t(item.label as MessageKey)}</strong>
+                      {`: ${item.value}`}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <p>
+                {hasSummaryAttempt
+                  ? t("automation.summary.unavailable")
+                  : t("automation.summary.idle")}
+              </p>
+            )}
           </article>
 
           <article className="panel-card">
