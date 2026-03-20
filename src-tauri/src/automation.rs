@@ -23,8 +23,17 @@ pub struct RunDetectionProbeRequest {
 #[serde(rename_all = "camelCase")]
 pub struct DetectionProbeResult {
   pub observed: ProbeObservedValues,
+  pub artifacts: Vec<DetectionProbeArtifact>,
   pub captured_at: String,
   pub target_url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DetectionProbeArtifact {
+  pub id: String,
+  pub url: String,
+  pub text: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -38,6 +47,12 @@ pub struct ProbeObservedValues {
   pub webgl: String,
   pub audio: String,
   pub client_rects: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TargetArtifactRequest {
+  pub id: String,
+  pub url: String,
 }
 
 struct CdpClient {
@@ -59,9 +74,12 @@ pub fn run_detection_probe(
 
     let payload = client.evaluate(&session_id, build_probe_expression())?;
     let observed = extract_probe_observed_values(&payload)?;
+    let artifacts =
+      client.collect_target_artifacts(&session_id, &request.target_id, &request.target_url);
 
     Ok(DetectionProbeResult {
       observed,
+      artifacts,
       captured_at: iso_timestamp(),
       target_url: request.target_url.clone(),
     })
@@ -81,6 +99,61 @@ pub fn run_detection_probe(
 pub(crate) fn extract_probe_observed_values(payload: &Value) -> Result<ProbeObservedValues, String> {
   serde_json::from_value(payload["result"]["result"]["value"].clone())
     .map_err(|error| format!("invalid probe payload: {error}"))
+}
+
+pub(crate) fn extract_probe_artifact_text(
+  payload: &Value,
+  id: &str,
+  url: &str,
+) -> Result<DetectionProbeArtifact, String> {
+  let text = payload["result"]["result"]["value"]
+    .as_str()
+    .map(ToOwned::to_owned)
+    .ok_or_else(|| "CDP evaluate did not return artifact text".to_string())?;
+
+  Ok(DetectionProbeArtifact {
+    id: id.to_string(),
+    url: url.to_string(),
+    text,
+  })
+}
+
+pub(crate) fn build_target_artifact_plan(
+  target_id: &str,
+  target_url: &str,
+) -> Option<Vec<TargetArtifactRequest>> {
+  match target_id {
+    "creepjs" => Some(vec![TargetArtifactRequest {
+      id: "creepjs-main".to_string(),
+      url: target_url.to_string(),
+    }]),
+    "browserleaks" => {
+      let base_url = target_url.trim_end_matches('/');
+      Some(vec![
+        TargetArtifactRequest {
+          id: "javascript".to_string(),
+          url: format!("{base_url}/javascript"),
+        },
+        TargetArtifactRequest {
+          id: "webrtc".to_string(),
+          url: format!("{base_url}/webrtc"),
+        },
+        TargetArtifactRequest {
+          id: "canvas".to_string(),
+          url: format!("{base_url}/canvas"),
+        },
+        TargetArtifactRequest {
+          id: "webgl".to_string(),
+          url: format!("{base_url}/webgl"),
+        },
+        TargetArtifactRequest {
+          id: "rects".to_string(),
+          url: format!("{base_url}/rects"),
+        },
+      ])
+    }
+    _ => None,
+  }
 }
 
 impl CdpClient {
@@ -145,6 +218,22 @@ impl CdpClient {
     }
   }
 
+  fn navigate_to(&mut self, session_id: &str, target_url: &str) -> Result<(), String> {
+    let response = self.send_command(
+      "Page.navigate",
+      json!({
+        "url": target_url,
+      }),
+      Some(session_id),
+    )?;
+
+    if let Some(error_text) = response["result"]["errorText"].as_str() {
+      return Err(format!("CDP navigate failed: {error_text}"));
+    }
+
+    self.wait_for_document_ready(session_id)
+  }
+
   fn evaluate_string(&mut self, session_id: &str, expression: &str) -> Result<String, String> {
     let response = self.evaluate(session_id, expression)?;
 
@@ -185,6 +274,33 @@ impl CdpClient {
     )?;
 
     Ok(())
+  }
+
+  fn collect_target_artifacts(
+    &mut self,
+    session_id: &str,
+    target_id: &str,
+    target_url: &str,
+  ) -> Vec<DetectionProbeArtifact> {
+    let Some(plan) = build_target_artifact_plan(target_id, target_url) else {
+      return Vec::new();
+    };
+
+    plan
+      .into_iter()
+      .filter_map(|artifact| self.collect_target_artifact(session_id, &artifact).ok())
+      .collect()
+  }
+
+  fn collect_target_artifact(
+    &mut self,
+    session_id: &str,
+    artifact: &TargetArtifactRequest,
+  ) -> Result<DetectionProbeArtifact, String> {
+    self.navigate_to(session_id, &artifact.url)?;
+
+    let payload = self.evaluate(session_id, build_artifact_expression())?;
+    extract_probe_artifact_text(&payload, &artifact.id, &artifact.url)
   }
 
   fn send_command(
@@ -368,6 +484,15 @@ fn build_probe_expression() -> &'static str {
         audio,
         clientRects,
       }
+    })()
+  "#
+}
+
+fn build_artifact_expression() -> &'static str {
+  r#"
+    (() => {
+      const text = document.body?.innerText || ''
+      return text.slice(0, 12000)
     })()
   "#
 }

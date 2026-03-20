@@ -1,6 +1,6 @@
 # fingerprint-browser MVP PRD
 
-> Last updated: 2026-03-18
+> Last updated: 2026-03-20
 
 ## 1. 产品目标
 
@@ -101,7 +101,7 @@ MVP 面向以下用户：
 - **可替换**：存储层、runtime 层、automation 层都需要保留适配接口
 - **可观察**：实例生命周期至少提供状态、端口、日志摘要
 
-## 7. 当前阶段状态（截至 2026-03-18）
+## 7. 当前阶段状态（截至 2026-03-20）
 
 ### 已有能力
 - Tauri + React 基础壳体已建立
@@ -121,6 +121,7 @@ MVP 面向以下用户：
   - 内置 CreepJS / BrowserLeaks 目标与手工 checklist
   - 支持按 profile 记录回归结果并查看最近 diff
   - 支持对运行中的 profile 通过 `wsEndpoint` 自动采集 UA、language、timezone、WebRTC、Canvas、WebGL、Audio、ClientRects
+  - 支持对 CreepJS / BrowserLeaks 自动采集结果生成站点级摘要
   - Dashboard 可展示检测覆盖情况
 - 中英切换已合入 `main`
   - 支持 English / 简体中文切换
@@ -132,7 +133,6 @@ MVP 面向以下用户：
   - `npm run runtime:smoke`
 
 ### 未完成能力
-- 直接解析 CreepJS / BrowserLeaks 页面摘要并生成站点级结论
 - 更深层指纹注入与自动校验（Canvas / WebGL / Audio / ClientRects）
 - 更完整的运行时健康检查、自动重试和日志面板
 
@@ -161,7 +161,7 @@ MVP 面向以下用户：
 ### M5：检测实验室
 - 对应 issue `#6`
 - 目标：形成最小闭环的检测与回归能力（第一阶段为手工录入 + diff 对比）
-- 当前进度：手动回归记录、diff 工作台、以及基于运行中 `wsEndpoint` 的自动采集入口都已落地
+- 当前进度：手动回归记录、diff 工作台、基于运行中 `wsEndpoint` 的自动采集入口，以及站点级自动摘要都已落地
 
 ## 9. MVP 完成标准
 

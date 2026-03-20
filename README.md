@@ -7,6 +7,7 @@ The current app focuses on a local desktop control plane:
 - launch, stop, and restart Chromium-family browser instances from the desktop host
 - expose CDP / Playwright connection metadata for running profiles
 - auto-capture and record regression runs for CreepJS and BrowserLeaks
+- generate site-aware summaries from CreepJS / BrowserLeaks probe pages
 - switch the manager UI between English and Simplified Chinese
 
 ## Current status
@@ -17,10 +18,10 @@ Implemented today:
 - runtime adapter that turns a profile into a normalized fingerprint and launch plan
 - native Chromium-family runtime launcher in Tauri mode with real `wsEndpoint` discovery
 - detection lab with running-profile auto capture, manual review, and diff history
+- target-aware summary parsing for CreepJS / BrowserLeaks auto capture
 - bilingual manager UI (`English` / `简体中文`)
 
 Still planned:
-- deeper site-specific parsing for CreepJS / BrowserLeaks result pages
 - stronger anti-detect fingerprint injection and verification
 - richer runtime health checks and log views
 
@@ -100,12 +101,13 @@ The smoke utility connects through `playwright-core`, prints the browser version
 - `src/features/profiles/` - profile storage and management UI
 - `src/features/runtime/` - runtime lifecycle manager and launch adapter
 - `src/features/automation/` - detection lab and regression storage
+- `src/features/automation/summary.ts` - site-aware auto-summary parser for target artifacts
 - `src/features/i18n/` - locale state, translations, and formatting helpers
 - `src/lib/desktop.ts` - desktop overview bridge
 - `src/lib/automationDesktop.ts` - Tauri detection-probe bridge
 - `src/lib/runtimeDesktop.ts` - Tauri runtime launch / stop / restart bridge
 - `src-tauri/src/runtime.rs` - native Chromium-family launcher and CDP endpoint discovery
-- `src-tauri/src/automation.rs` - native CDP probe for Detection Lab auto capture
+- `src-tauri/src/automation.rs` - native CDP probe for Detection Lab auto capture and artifact collection
 - `docs/` - PRD, architecture, and implementation plans
 
 ## Related docs

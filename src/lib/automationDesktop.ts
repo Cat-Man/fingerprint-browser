@@ -11,8 +11,15 @@ export type DetectionProbeRequest = {
   wsEndpoint: string
 }
 
+export type DetectionProbeArtifact = {
+  id: string
+  url: string
+  text: string
+}
+
 export type DetectionProbeResult = {
   observed: RegressionObservedValues
+  artifacts?: DetectionProbeArtifact[]
   capturedAt: string
   targetUrl: string
 }

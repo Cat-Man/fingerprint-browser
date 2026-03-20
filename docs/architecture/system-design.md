@@ -1,6 +1,6 @@
 # fingerprint-browser System Design
 
-> Last updated: 2026-03-18
+> Last updated: 2026-03-20
 
 ## 1. 设计目标
 
@@ -159,9 +159,10 @@
 1. 用户在 Detection Lab 选择 profile 与检测站点
 2. 页面根据 profile 预填基础 fingerprint 期望值
 3. 如果 profile 正在运行，页面可通过 `wsEndpoint` 触发自动采集并回填字段
-4. 用户可继续补充备注，或改为手工调整字段
-5. Regression storage 将结果写入 `localStorage`
-6. 页面展示最近两次 run 的字段级 diff
+4. Native Runtime 额外抓取目标站点页面文本工件，前端解析成站点级摘要
+5. 用户可继续补充备注，或改为手工调整字段
+6. Regression storage 将结果写入 `localStorage`
+7. 页面展示最近两次 run 的字段级 diff
 
 ## 6. 领域模型
 
@@ -212,10 +213,9 @@
 
 ## 8. 当前技术债
 
-截至 2026-03-18，系统仍有以下技术债：
+截至 2026-03-20，系统仍有以下技术债：
 
 - 浏览器预览模式仍使用 `sessionStorage` 回退，不具备真实原生进程管理
-- Detection Lab 已具备自动采集入口，但尚未直接解析 CreepJS / BrowserLeaks 页面摘要
 - 尚缺少运行时健康检查、崩溃探测和更完整的原生日志面板
 - 更深层指纹注入与校验仍未覆盖 Canvas / WebGL / Audio / ClientRects 的对抗能力
 
@@ -224,10 +224,9 @@
 
 建议按以下顺序继续：
 
-1. 把 Detection Lab 与 Playwright / 检测站点自动采集联通
-2. 增加运行时健康检查、异常恢复和日志面板
-3. 为回归结果补充导出与对比视图
-4. 继续扩展更深层的指纹注入与校验能力
+1. 增加运行时健康检查、异常恢复和日志面板
+2. 为回归结果补充导出与对比视图
+3. 继续扩展更深层的指纹注入与校验能力
 
 ## 10. 相关文档
 
