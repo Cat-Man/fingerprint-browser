@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it } from "vitest"
 import type { DesktopRuntimeBridge } from "../../lib/runtimeDesktop"
 import { I18nProvider } from "../i18n"
+import { saveRuntimeInstances } from "../runtime"
 import {
   PROFILE_STORAGE_KEY,
   createEmptyProfileDraft,
@@ -180,7 +181,143 @@ describe("ProfilesPage", () => {
     await user.click(screen.getByRole("button", { name: /stop profile a/i }))
 
     expect(screen.getByText(/^stopped$/i)).toBeInTheDocument()
-    expect(screen.getByText(/released profile lock/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/released profile lock/i)).toHaveLength(2)
+  })
+
+  it("shows runtime health details and recent logs for a running profile", () => {
+    const profileA = createProfileFromDraft({
+      ...createEmptyProfileDraft(),
+      name: "Profile A",
+    })
+
+    saveProfiles([profileA])
+    saveRuntimeInstances([
+      {
+        id: profileA.id,
+        profileId: profileA.id,
+        profileName: profileA.name,
+        status: "running",
+        debugPort: 9333,
+        wsEndpoint: "ws://127.0.0.1:9333/devtools/browser/native",
+        startedAt: "2026-03-25T10:00:00.000Z",
+        updatedAt: "2026-03-25T10:05:00.000Z",
+        processId: 456,
+        lastError: "CDP endpoint is unreachable",
+        logs: [
+          {
+            at: "2026-03-25T10:00:00.000Z",
+            level: "info",
+            message: "Launched Chromium runtime via chromium adapter",
+          },
+          {
+            at: "2026-03-25T10:05:00.000Z",
+            level: "error",
+            message: "Runtime health check: degraded - CDP endpoint is unreachable",
+          },
+        ],
+        health: {
+          status: "degraded",
+          checkedAt: "2026-03-25T10:05:00.000Z",
+          message: "CDP endpoint is unreachable",
+        },
+      },
+    ])
+
+    render(<ProfilesPage />)
+
+    expect(screen.getByText(/health: degraded/i)).toBeInTheDocument()
+    expect(screen.getByText(/health message: CDP endpoint is unreachable/i)).toBeInTheDocument()
+    expect(screen.getByText(/runtime logs/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Launched Chromium runtime via chromium adapter/i),
+    ).toBeInTheDocument()
+    expect(
+      screen.getAllByText(/Runtime health check: degraded - CDP endpoint is unreachable/i),
+    ).toHaveLength(2)
+  })
+
+  it("refreshes runtime health from the profiles page", async () => {
+    const user = userEvent.setup()
+    const profileA = createProfileFromDraft({
+      ...createEmptyProfileDraft(),
+      name: "Profile A",
+    })
+    const runtimeBridge: DesktopRuntimeBridge = {
+      isTauri: () => true,
+      launch: async () => {
+        throw new Error("not used")
+      },
+      restart: async () => {
+        throw new Error("not used")
+      },
+      stop: async () => {
+        throw new Error("not used")
+      },
+      refreshHealth: async () => ({
+        id: profileA.id,
+        profileId: profileA.id,
+        profileName: profileA.name,
+        status: "running",
+        debugPort: 9333,
+        wsEndpoint: "ws://127.0.0.1:9333/devtools/browser/native",
+        startedAt: "2026-03-25T10:00:00.000Z",
+        updatedAt: "2026-03-25T10:06:00.000Z",
+        processId: 456,
+        lastError: null,
+        logs: [
+          {
+            at: "2026-03-25T10:00:00.000Z",
+            level: "info",
+            message: "Launched Chromium runtime via chromium adapter",
+          },
+          {
+            at: "2026-03-25T10:06:00.000Z",
+            level: "info",
+            message: "Runtime health check: healthy - Native runtime is reachable",
+          },
+        ],
+        health: {
+          status: "healthy",
+          checkedAt: "2026-03-25T10:06:00.000Z",
+          message: "Native runtime is reachable",
+        },
+      }),
+    }
+
+    saveProfiles([profileA])
+    saveRuntimeInstances([
+      {
+        id: profileA.id,
+        profileId: profileA.id,
+        profileName: profileA.name,
+        status: "running",
+        debugPort: 9333,
+        wsEndpoint: "ws://127.0.0.1:9333/devtools/browser/native",
+        startedAt: "2026-03-25T10:00:00.000Z",
+        updatedAt: "2026-03-25T10:05:00.000Z",
+        processId: 456,
+        lastError: "CDP endpoint is unreachable",
+        logs: [
+          {
+            at: "2026-03-25T10:00:00.000Z",
+            level: "info",
+            message: "Launched Chromium runtime via chromium adapter",
+          },
+        ],
+        health: {
+          status: "degraded",
+          checkedAt: "2026-03-25T10:05:00.000Z",
+          message: "CDP endpoint is unreachable",
+        },
+      },
+    ])
+
+    render(<ProfilesPage runtimeBridge={runtimeBridge} />)
+
+    await user.click(screen.getByRole("button", { name: /refresh health profile a/i }))
+
+    expect(screen.getByText(/health: healthy/i)).toBeInTheDocument()
+    expect(screen.getByText(/health message: Native runtime is reachable/i)).toBeInTheDocument()
   })
 
   it("renders chinese form copy when the locale is zh-CN", () => {

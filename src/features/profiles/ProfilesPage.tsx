@@ -16,6 +16,7 @@ import {
 import {
   findRuntimeInstance,
   loadRuntimeInstances,
+  refreshProfileRuntimeHealth,
   resolveRuntimeAdapter,
   restartProfileRuntime,
   saveRuntimeInstances,
@@ -96,12 +97,16 @@ function findLatestLog(instance: ReturnType<typeof findRuntimeInstance>) {
   return instance?.logs.at(-1)
 }
 
+function healthStatusMessageKey(status: "healthy" | "degraded" | "stopped" | "unknown") {
+  return `profiles.runtime.healthStatus.${status}` as const
+}
+
 type ProfilesPageProps = {
   runtimeBridge?: DesktopRuntimeBridge
 }
 
 export function ProfilesPage({ runtimeBridge }: ProfilesPageProps) {
-  const { t } = useI18n()
+  const { t, formatDateTime } = useI18n()
   const defaultGroupLabel = t("profiles.group.default")
   const [profiles, setProfiles] = useState(() => loadProfiles())
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null)
@@ -185,6 +190,11 @@ export function ProfilesPage({ runtimeBridge }: ProfilesPageProps) {
 
   async function handleStop(profileId: string) {
     const result = await stopProfileRuntime(instances, profileId, runtimeBridge)
+    setInstances(result.instances)
+  }
+
+  async function handleRefreshHealth(profileId: string) {
+    const result = await refreshProfileRuntimeHealth(instances, profileId, runtimeBridge)
     setInstances(result.instances)
   }
 
@@ -307,6 +317,8 @@ export function ProfilesPage({ runtimeBridge }: ProfilesPageProps) {
           {profiles.map((profile) => {
             const instance = findRuntimeInstance(instances, profile.id)
             const lifecycleStatus = instance?.status ?? "idle"
+            const healthStatus =
+              instance?.health?.status ?? (instance?.status === "stopped" ? "stopped" : "unknown")
             const runtimeAdapter = resolveRuntimeAdapter(profile)
             const launchPlan = instance
               ? runtimeAdapter?.prepareLaunch({
@@ -350,9 +362,43 @@ export function ProfilesPage({ runtimeBridge }: ProfilesPageProps) {
                       value: instance?.wsEndpoint || t("profiles.runtime.notConnected"),
                     })}
                   </p>
-                  {findLatestLog(instance) ? (
+                  {instance ? (
                     <p>{formatRuntimeLog(findLatestLog(instance), t)}</p>
                   ) : null}
+                  {instance ? (
+                    <>
+                      <p>
+                        {t("profiles.runtime.health", {
+                          value: t(healthStatusMessageKey(healthStatus)),
+                        })}
+                      </p>
+                      <p>
+                        {t("profiles.runtime.checkedAt", {
+                          value: instance.health?.checkedAt
+                            ? formatDateTime(instance.health.checkedAt)
+                            : t("profiles.runtime.notAvailable"),
+                        })}
+                      </p>
+                      <p>
+                        {t("profiles.runtime.healthMessage", {
+                          value:
+                            instance.health?.message ?? instance.lastError ?? t("profiles.runtime.notAvailable"),
+                        })}
+                      </p>
+                    </>
+                  ) : null}
+                </div>
+                <div className="runtime-logs">
+                  <p>{t("profiles.runtime.logsTitle")}</p>
+                  {instance && instance.logs.length > 0 ? (
+                    <ul className="runtime-logs__list">
+                      {instance.logs.slice(-5).map((log) => (
+                        <li key={`${log.at}-${log.message}`}>{log.message}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>{t("profiles.runtime.logsEmpty")}</p>
+                  )}
                 </div>
                 {launchPlan ? (
                   <div className="runtime-plan">
@@ -375,6 +421,16 @@ export function ProfilesPage({ runtimeBridge }: ProfilesPageProps) {
                 <div className="profile-card__actions">
                   {instance?.status === "running" ? (
                     <>
+                      <button
+                        className="secondary-button"
+                        type="button"
+                        aria-label={t("profiles.aria.refreshHealth", { name: profile.name })}
+                        onClick={() => {
+                          void handleRefreshHealth(profile.id)
+                        }}
+                      >
+                        {t("profiles.runtime.refreshHealth")}
+                      </button>
                       <button
                         className="secondary-button"
                         type="button"
