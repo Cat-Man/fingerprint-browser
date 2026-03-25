@@ -26,6 +26,7 @@ export {
   RUNTIME_STORAGE_KEY,
   findRuntimeInstance,
   loadRuntimeInstances,
+  refreshProfileRuntimeHealth,
   restartProfileRuntime,
   restartProfileInstance,
   saveRuntimeInstances,
@@ -35,5 +36,7 @@ export {
   stopProfileInstance,
   summarizeRuntime,
   type BrowserInstance,
+  type RuntimeHealthSnapshot,
+  type RuntimeHealthStatus,
   type RuntimeLogEntry,
 } from "./manager"

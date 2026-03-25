@@ -3,6 +3,7 @@ import { createEmptyProfileDraft, createProfileFromDraft } from "../profiles"
 import {
   RUNTIME_STORAGE_KEY,
   loadRuntimeInstances,
+  refreshProfileRuntimeHealth,
   restartProfileInstance,
   saveRuntimeInstances,
   startProfileInstance,
@@ -50,6 +51,8 @@ describe("runtime manager", () => {
     const second = startProfileInstance(first.instances, profileB)
 
     expect(first.instance.debugPort).toBe(9222)
+    expect(first.instance.health.status).toBe("healthy")
+    expect(first.instance.health.checkedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
     expect(second.instance.debugPort).toBe(9223)
     expect(() => startProfileInstance(second.instances, profileA)).toThrow(/already running/i)
   })
@@ -70,5 +73,34 @@ describe("runtime manager", () => {
     expect(summarizeRuntime(restarted.instances).runningCount).toBe(1)
     expect(loadRuntimeInstances(storage)).toHaveLength(1)
     expect(storage.getItem(RUNTIME_STORAGE_KEY)).toContain("Profile A")
+  })
+
+  it("refreshes runtime health without changing the running port or discarding logs", async () => {
+    const profileA = makeProfile("Profile A")
+    const started = startProfileInstance([], profileA)
+
+    const refreshed = await refreshProfileRuntimeHealth(started.instances, profileA.id, {
+      isTauri: () => false,
+      launch: async () => {
+        throw new Error("not used")
+      },
+      restart: async () => {
+        throw new Error("not used")
+      },
+      stop: async () => {
+        throw new Error("not used")
+      },
+      refreshHealth: async () => {
+        throw new Error("web preview should not call native refresh")
+      },
+    })
+
+    expect(refreshed.instance.debugPort).toBe(started.instance.debugPort)
+    expect(refreshed.instance.logs).toHaveLength(started.instance.logs.length)
+    expect(refreshed.instance.health).toMatchObject({
+      status: "healthy",
+      message: "Web preview runtime does not expose native health probes",
+    })
+    expect(refreshed.instance.health.checkedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
   })
 })
