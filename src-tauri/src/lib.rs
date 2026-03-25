@@ -9,7 +9,9 @@ mod runtime_tests;
 
 use serde::Serialize;
 use automation::run_detection_probe;
-use runtime::{launch_runtime, restart_runtime, stop_runtime, RuntimeRegistry};
+use runtime::{
+  launch_runtime, refresh_runtime_health, restart_runtime, stop_runtime, RuntimeRegistry,
+};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -48,6 +50,7 @@ pub fn run() {
       get_app_overview,
       run_detection_probe,
       launch_runtime,
+      refresh_runtime_health,
       restart_runtime,
       stop_runtime
     ])

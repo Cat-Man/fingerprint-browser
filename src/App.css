@@ -239,6 +239,20 @@ textarea {
   gap: 0.35rem;
 }
 
+.runtime-logs {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.runtime-logs__list {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.runtime-logs__list li {
+  word-break: break-word;
+}
+
 .runtime-plan {
   display: grid;
   gap: 0.4rem;

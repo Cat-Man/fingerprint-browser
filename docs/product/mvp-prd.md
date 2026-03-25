@@ -1,6 +1,6 @@
 # fingerprint-browser MVP PRD
 
-> Last updated: 2026-03-20
+> Last updated: 2026-03-25
 
 ## 1. 产品目标
 
@@ -123,6 +123,10 @@ MVP 面向以下用户：
   - 支持对运行中的 profile 通过 `wsEndpoint` 自动采集 UA、language、timezone、WebRTC、Canvas、WebGL、Audio、ClientRects
   - 支持对 CreepJS / BrowserLeaks 自动采集结果生成站点级摘要
   - Dashboard 可展示检测覆盖情况
+- Runtime 健康诊断基础版已合入 `main`
+  - 支持主动刷新运行中实例的健康状态
+  - 健康检查覆盖托管进程存活与 CDP endpoint 可达性
+  - Profiles 页面可展示最近检查结果与最近若干条 runtime logs
 - 中英切换已合入 `main`
   - 支持 English / 简体中文切换
   - 本地持久化用户语言选择
@@ -134,7 +138,7 @@ MVP 面向以下用户：
 
 ### 未完成能力
 - 更深层指纹注入与自动校验（Canvas / WebGL / Audio / ClientRects）
-- 更完整的运行时健康检查、自动重试和日志面板
+- 更完整的运行时自动恢复、连续健康探测和原生日志流
 
 ## 8. 里程碑
 

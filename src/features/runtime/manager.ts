@@ -10,10 +10,17 @@ export const RUNTIME_STORAGE_KEY = "fingerprint-browser.runtime.v1"
 const DEFAULT_DEBUG_PORT = 9222
 
 export type RuntimeStatus = "running" | "stopped"
+export type RuntimeHealthStatus = "unknown" | "healthy" | "degraded" | "stopped"
 export type RuntimeLogMessageKey =
   | "runtime.log.started"
   | "runtime.log.restarted"
   | "runtime.log.stopped"
+
+export type RuntimeHealthSnapshot = {
+  status: RuntimeHealthStatus
+  checkedAt: string
+  message: string
+}
 
 export type RuntimeLogEntry = {
   at: string
@@ -35,6 +42,7 @@ export type BrowserInstance = {
   processId?: number
   lastError: string | null
   logs: RuntimeLogEntry[]
+  health?: RuntimeHealthSnapshot
 }
 
 export type RuntimeStorageLike = Pick<Storage, "getItem" | "setItem">
@@ -137,6 +145,7 @@ export function stopProfileInstance(instances: BrowserInstance[], profileId: str
     wsEndpoint: "",
     updatedAt: timestamp,
     logs: appendLog(existing.logs, timestamp, "runtime.log.stopped"),
+    health: createRuntimeHealthSnapshot("stopped", "Runtime is stopped", timestamp),
   }
 
   return {
@@ -189,6 +198,7 @@ export function restartProfileInstance(
     logs: appendLog(existing.logs, timestamp, "runtime.log.restarted", {
       port: existing.debugPort,
     }),
+    health: createRuntimeHealthSnapshot("healthy", "Runtime is reachable", timestamp),
   }
 
   return {
@@ -229,6 +239,53 @@ export async function restartProfileRuntime(
     ),
   )
   const nextInstance = mergeRuntimeInstance(nativeInstance, draft.instance)
+
+  return {
+    instance: nextInstance,
+    instances: upsertInstance(instances, nextInstance),
+  }
+}
+
+export async function refreshProfileRuntimeHealth(
+  instances: BrowserInstance[],
+  profileId: string,
+  runtimeBridge: DesktopRuntimeBridge = desktopRuntimeBridge,
+) {
+  const existing = findRuntimeInstance(instances, profileId)
+
+  if (!existing) {
+    throw new Error(`Profile ${profileId} does not have a runtime instance`)
+  }
+
+  if (existing.status === "stopped") {
+    const nextInstance: BrowserInstance = {
+      ...existing,
+      health: createRuntimeHealthSnapshot("stopped", "Runtime is stopped"),
+    }
+
+    return {
+      instance: nextInstance,
+      instances: upsertInstance(instances, nextInstance),
+    }
+  }
+
+  if (!runtimeBridge.isTauri() || !runtimeBridge.refreshHealth) {
+    const nextInstance: BrowserInstance = {
+      ...existing,
+      health: createRuntimeHealthSnapshot(
+        "healthy",
+        "Web preview runtime does not expose native health probes",
+      ),
+    }
+
+    return {
+      instance: nextInstance,
+      instances: upsertInstance(instances, nextInstance),
+    }
+  }
+
+  const nativeInstance = await runtimeBridge.refreshHealth({ profileId })
+  const nextInstance = mergeRuntimeInstance(nativeInstance, existing)
 
   return {
     instance: nextInstance,
@@ -278,6 +335,7 @@ function createRunningInstance(
     logs: appendLog(previousLogs, timestamp, "runtime.log.started", {
       port: debugPort,
     }),
+    health: createRuntimeHealthSnapshot("healthy", "Runtime is reachable", timestamp),
   }
 }
 
@@ -289,6 +347,7 @@ function mergeRuntimeInstance(
     ...fallbackInstance,
     ...nextInstance,
     logs: nextInstance.logs.length > 0 ? nextInstance.logs : fallbackInstance.logs,
+    health: nextInstance.health ?? fallbackInstance.health,
   }
 }
 
@@ -315,4 +374,16 @@ function appendLog(
         : "Stopped instance and released profile lock"
 
   return [...logs, { at, level: "info", message, messageKey, params }]
+}
+
+function createRuntimeHealthSnapshot(
+  status: RuntimeHealthStatus,
+  message: string,
+  checkedAt = new Date().toISOString(),
+): RuntimeHealthSnapshot {
+  return {
+    status,
+    checkedAt,
+    message,
+  }
 }
