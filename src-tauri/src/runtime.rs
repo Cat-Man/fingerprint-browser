@@ -40,11 +40,25 @@ pub struct StopRuntimeRequest {
   pub profile_id: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RefreshRuntimeHealthRequest {
+  pub profile_id: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeLogEntry {
   pub at: String,
   pub level: &'static str,
+  pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeHealthSnapshot {
+  pub status: &'static str,
+  pub checked_at: String,
   pub message: String,
 }
 
@@ -62,6 +76,7 @@ pub struct RuntimeProcessHandle {
   pub process_id: Option<u32>,
   pub last_error: Option<String>,
   pub logs: Vec<RuntimeLogEntry>,
+  pub health: RuntimeHealthSnapshot,
 }
 
 #[derive(Default)]
@@ -158,9 +173,39 @@ pub fn restart_runtime(
   launch_runtime(request, state)
 }
 
+#[tauri::command]
+pub fn refresh_runtime_health(
+  request: RefreshRuntimeHealthRequest,
+  state: tauri::State<'_, RuntimeRegistry>,
+) -> Result<RuntimeProcessHandle, String> {
+  let mut processes = state
+    .processes
+    .lock()
+    .map_err(|_| "failed to lock runtime registry".to_string())?;
+  let managed = processes
+    .get_mut(&request.profile_id)
+    .ok_or_else(|| format!("Profile {} does not have a runtime instance", request.profile_id))?;
+
+  let checked_at = iso_timestamp();
+  let process_running = child_is_running(&mut managed.child)?;
+  let cdp_result = if process_running {
+    fetch_cdp_ws_endpoint(managed.handle.debug_port)
+  } else {
+    Err("native runtime process is not running".to_string())
+  };
+  let refreshed =
+    refresh_runtime_handle(managed.handle.clone(), process_running, cdp_result, checked_at);
+
+  managed.handle = refreshed.clone();
+
+  Ok(refreshed)
+}
+
 pub(crate) fn launch_runtime_process(
   request: &LaunchRuntimeRequest,
 ) -> Result<RuntimeProcessHandle, String> {
+  let checked_at = iso_timestamp();
+
   Ok(RuntimeProcessHandle {
     id: request.profile_id.clone(),
     profile_id: request.profile_id.clone(),
@@ -180,7 +225,66 @@ pub(crate) fn launch_runtime_process(
         request.browser_engine, request.launch_plan.adapter_id
       ),
     }],
+    health: RuntimeHealthSnapshot {
+      status: "healthy",
+      checked_at: checked_at.clone(),
+      message: "Native runtime is reachable".to_string(),
+    },
   })
+}
+
+pub(crate) fn refresh_runtime_handle(
+  mut handle: RuntimeProcessHandle,
+  process_running: bool,
+  cdp_result: Result<String, String>,
+  checked_at: String,
+) -> RuntimeProcessHandle {
+  let (status, level, message, ws_endpoint, last_error) = if !process_running {
+    let message = "Native runtime process is not running".to_string();
+    (
+      "degraded",
+      "error",
+      message.clone(),
+      handle.ws_endpoint.clone(),
+      Some(message),
+    )
+  } else {
+    match cdp_result {
+      Ok(ws_endpoint) => (
+        "healthy",
+        "info",
+        "Native runtime is reachable".to_string(),
+        ws_endpoint,
+        None,
+      ),
+      Err(error) => {
+        let message = format!("CDP endpoint is unreachable: {error}");
+        (
+          "degraded",
+          "error",
+          message.clone(),
+          handle.ws_endpoint.clone(),
+          Some(message),
+        )
+      }
+    }
+  };
+
+  handle.updated_at = checked_at.clone();
+  handle.ws_endpoint = ws_endpoint;
+  handle.last_error = last_error;
+  handle.health = RuntimeHealthSnapshot {
+    status,
+    checked_at: checked_at.clone(),
+    message: message.clone(),
+  };
+  handle.logs.push(RuntimeLogEntry {
+    at: checked_at,
+    level,
+    message: format!("Runtime health check: {status} - {message}"),
+  });
+
+  handle
 }
 
 pub(crate) fn resolve_browser_binary(browser_engine: &str) -> Result<PathBuf, String> {
@@ -236,6 +340,13 @@ fn spawn_browser_process(
   command
     .spawn()
     .map_err(|error| format!("failed to spawn browser: {error}"))
+}
+
+fn child_is_running(child: &mut Child) -> Result<bool, String> {
+  child
+    .try_wait()
+    .map(|status| status.is_none())
+    .map_err(|error| format!("failed to inspect runtime process: {error}"))
 }
 
 fn wait_for_cdp_ws_endpoint(debug_port: u16) -> Result<String, String> {
