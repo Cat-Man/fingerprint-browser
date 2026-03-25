@@ -1,6 +1,6 @@
 # Runtime Contract
 
-> Last updated: 2026-03-20
+> Last updated: 2026-03-25
 
 ## 1. 文档目标
 
@@ -95,6 +95,11 @@ export type RuntimeProcessHandle = {
   startedAt: string
   updatedAt: string
   lastError?: string
+  health: {
+    status: "unknown" | "healthy" | "degraded" | "stopped"
+    checkedAt: string
+    message: string
+  }
 }
 
 export interface RuntimeAdapter {
@@ -199,6 +204,20 @@ export type DetectionProbeResult = {
 - `artifacts` 承担站点级摘要解析所需的目标页面文本工件
 - BrowserLeaks 允许由多个子页面（如 `/javascript`、`/webrtc`、`/canvas`、`/webgl`、`/rects`）共同组成一次摘要输入
 
+Runtime 健康刷新当前新增的 contract：
+
+```ts
+export type RefreshRuntimeHealthRequest = {
+  profileId: string
+}
+```
+
+要求：
+
+- Native Runtime 需要检查托管进程是否仍存活
+- Native Runtime 需要检查当前 `debugPort` 对应的 CDP endpoint 是否可达
+- 返回值继续复用 `RuntimeProcessHandle`，并更新 `health`、`lastError`、`updatedAt` 与 `logs`
+
 ## 8. 错误模型
 
 建议使用结构化错误：
@@ -228,11 +247,12 @@ export type RuntimeError = {
 
 ## 9. 兼容当前实现的迁移路径
 
-截至 2026-03-20，当前主线中：
+截至 2026-03-25，当前主线中：
 
 - `runtime/manager.ts` 已负责 lifecycle 抽象
 - Tauri 模式会通过 `runtimeDesktop` 桥接返回真实 `processId` 与 `wsEndpoint`
 - Detection Lab 已可通过 `automationDesktop` 桥接向运行中的实例发起 probe
+- Profiles 页面已可通过 `refresh_runtime_health` 主动刷新运行时健康状态，并查看最近日志
 - 浏览器预览模式仍保留 `sessionStorage` 运行态回退
 
 迁移建议：
@@ -247,7 +267,7 @@ export type RuntimeError = {
 
 ### Phase 3
 - 深化站点级检测解析与自动结论
-- 增加运行时错误通道、健康检查和日志面板
+- 增加自动健康探测、恢复策略和连续日志流
 
 ## 10. 验收标准
 

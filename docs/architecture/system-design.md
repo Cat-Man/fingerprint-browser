@@ -1,6 +1,6 @@
 # fingerprint-browser System Design
 
-> Last updated: 2026-03-20
+> Last updated: 2026-03-25
 
 ## 1. 设计目标
 
@@ -155,6 +155,14 @@
 5. 返回真实 `processId`、`debugPort`、`wsEndpoint`
 6. Lifecycle Manager 同步 UI 状态
 
+### 5.4.1 运行时健康刷新（Tauri 原生路径）
+1. 用户在 Profiles 页面点击刷新健康状态
+2. Frontend 通过 desktop runtime bridge 调用 `refresh_runtime_health`
+3. Native Runtime 检查托管进程是否仍存活
+4. Native Runtime 检查当前 `debugPort` 对应的 CDP `/json/version` 是否可达
+5. 返回更新后的 `health`、`lastError`、`wsEndpoint` 和附加日志
+6. Profiles 页面展示最新健康结论与最近日志历史
+
 ### 5.5 检测实验室（当前）
 1. 用户在 Detection Lab 选择 profile 与检测站点
 2. 页面根据 profile 预填基础 fingerprint 期望值
@@ -213,10 +221,10 @@
 
 ## 8. 当前技术债
 
-截至 2026-03-20，系统仍有以下技术债：
+截至 2026-03-25，系统仍有以下技术债：
 
 - 浏览器预览模式仍使用 `sessionStorage` 回退，不具备真实原生进程管理
-- 尚缺少运行时健康检查、崩溃探测和更完整的原生日志面板
+- 当前健康检查仍是手动刷新模式，尚未形成连续探测、崩溃自动恢复和日志流订阅
 - 更深层指纹注入与校验仍未覆盖 Canvas / WebGL / Audio / ClientRects 的对抗能力
 
 
@@ -224,7 +232,7 @@
 
 建议按以下顺序继续：
 
-1. 增加运行时健康检查、异常恢复和日志面板
+1. 增加自动健康探测、异常恢复和日志流订阅
 2. 为回归结果补充导出与对比视图
 3. 继续扩展更深层的指纹注入与校验能力
 
