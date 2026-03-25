@@ -8,6 +8,7 @@ The current app focuses on a local desktop control plane:
 - expose CDP / Playwright connection metadata for running profiles
 - auto-capture and record regression runs for CreepJS and BrowserLeaks
 - generate site-aware summaries from CreepJS / BrowserLeaks probe pages
+- refresh runtime health and inspect recent runtime logs from the manager UI
 - switch the manager UI between English and Simplified Chinese
 
 ## Current status
@@ -19,11 +20,12 @@ Implemented today:
 - native Chromium-family runtime launcher in Tauri mode with real `wsEndpoint` discovery
 - detection lab with running-profile auto capture, manual review, and diff history
 - target-aware summary parsing for CreepJS / BrowserLeaks auto capture
+- runtime health refresh with CDP reachability checks and recent log history in Profiles
 - bilingual manager UI (`English` / `简体中文`)
 
 Still planned:
 - stronger anti-detect fingerprint injection and verification
-- richer runtime health checks and log views
+- automatic runtime recovery and richer native log streaming
 
 ## Quickstart
 
